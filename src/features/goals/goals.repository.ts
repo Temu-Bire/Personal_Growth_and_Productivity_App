@@ -1,4 +1,4 @@
-import { getDatabase } from '../../db/client';
+import { getDatabase, getDatabaseAsync } from '../../db/client';
 import { generateId } from '../../utils/id';
 
 export interface Goal {
@@ -52,9 +52,46 @@ export class GoalsRepository {
     });
   }
 
+  static async getAllWithProgressAsync(completedFilter = 0): Promise<Goal[]> {
+    const db = await getDatabaseAsync();
+    const goals = await db.getAllAsync<Goal>(
+      'SELECT * FROM goals WHERE is_completed = ? ORDER BY due_date ASC',
+      [completedFilter]
+    );
+
+    const enriched = await Promise.all(
+      goals.map(async (g) => {
+        const milestones = await db.getAllAsync<GoalMilestone>(
+          'SELECT is_completed FROM goal_milestones WHERE goal_id = ?',
+          [g.id]
+        );
+        const total = milestones.length;
+        const completed = milestones.filter((m) => m.is_completed === 1).length;
+        const progressPercent = total === 0 ? (g.is_completed === 1 ? 100 : 0) : Math.round((completed / total) * 100);
+
+        return {
+          ...g,
+          milestonesCount: total,
+          completedMilestonesCount: completed,
+          progressPercent,
+        };
+      })
+    );
+
+    return enriched;
+  }
+
   static getMilestones(goalId: string): GoalMilestone[] {
     const db = getDatabase();
     return db.getAllSync<GoalMilestone>(
+      'SELECT * FROM goal_milestones WHERE goal_id = ? ORDER BY created_at ASC',
+      [goalId]
+    );
+  }
+
+  static async getMilestonesAsync(goalId: string): Promise<GoalMilestone[]> {
+    const db = await getDatabaseAsync();
+    return db.getAllAsync<GoalMilestone>(
       'SELECT * FROM goal_milestones WHERE goal_id = ? ORDER BY created_at ASC',
       [goalId]
     );
@@ -82,6 +119,34 @@ export class GoalsRepository {
       allDone ? new Date().toISOString() : null,
       current.goal_id,
     ]);
+
+    return newCompleted === 1;
+  }
+
+  static async toggleMilestoneAsync(milestoneId: string): Promise<boolean> {
+    const db = await getDatabaseAsync();
+    const current = await db.getFirstAsync<GoalMilestone>(
+      'SELECT goal_id, is_completed FROM goal_milestones WHERE id = ?',
+      [milestoneId]
+    );
+    if (!current) return false;
+
+    const newCompleted = current.is_completed === 1 ? 0 : 1;
+
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('UPDATE goal_milestones SET is_completed = ? WHERE id = ?', [newCompleted, milestoneId]);
+
+      const allMilestones = await db.getAllAsync<GoalMilestone>(
+        'SELECT is_completed FROM goal_milestones WHERE goal_id = ?',
+        [current.goal_id]
+      );
+      const allDone = allMilestones.length > 0 && allMilestones.every((m) => m.is_completed === 1);
+      await db.runAsync('UPDATE goals SET is_completed = ?, completed_at = ? WHERE id = ?', [
+        allDone ? 1 : 0,
+        allDone ? new Date().toISOString() : null,
+        current.goal_id,
+      ]);
+    });
 
     return newCompleted === 1;
   }
@@ -115,9 +180,49 @@ export class GoalsRepository {
     return db.getFirstSync<Goal>('SELECT * FROM goals WHERE id = ?', [id])!;
   }
 
+  static async createGoalAsync(goal: {
+    title: string;
+    dueDate: string;
+    category?: string;
+    milestones?: string[];
+  }): Promise<Goal> {
+    const db = await getDatabaseAsync();
+    const id = generateId('goal');
+    const now = new Date().toISOString();
+
+    await db.withTransactionAsync(async () => {
+      await db.runAsync(
+        'INSERT INTO goals (id, title, due_date, category, is_completed, created_at, updated_at) VALUES (?, ?, ?, ?, 0, ?, ?)',
+        [id, goal.title, goal.dueDate, goal.category || 'General', now, now]
+      );
+
+      if (goal.milestones) {
+        for (const m of goal.milestones) {
+          if (m.trim()) {
+            await db.runAsync(
+              'INSERT INTO goal_milestones (id, goal_id, title, is_completed, created_at) VALUES (?, ?, ?, 0, ?)',
+              [generateId('gmil'), id, m.trim(), now]
+            );
+          }
+        }
+      }
+    });
+
+    const created = await db.getFirstAsync<Goal>('SELECT * FROM goals WHERE id = ?', [id]);
+    return created!;
+  }
+
   static markComplete(goalId: string): void {
     const db = getDatabase();
     db.runSync('UPDATE goals SET is_completed = 1, completed_at = ? WHERE id = ?', [
+      new Date().toISOString(),
+      goalId,
+    ]);
+  }
+
+  static async markCompleteAsync(goalId: string): Promise<void> {
+    const db = await getDatabaseAsync();
+    await db.runAsync('UPDATE goals SET is_completed = 1, completed_at = ? WHERE id = ?', [
       new Date().toISOString(),
       goalId,
     ]);

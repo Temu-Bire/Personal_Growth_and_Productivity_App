@@ -1,4 +1,4 @@
-import { getDatabase } from '../../db/client';
+import { getDatabase, getDatabaseAsync } from '../../db/client';
 import { generateId } from '../../utils/id';
 import { calculateHabitStreak, HabitLogEntry } from './streak.utils';
 
@@ -22,16 +22,16 @@ export interface Habit {
 }
 
 export class HabitsRepository {
+  // Sync
   static getAllWithProgress(date: string): Habit[] {
     const db = getDatabase();
     const habits = db.getAllSync<Habit>(
-      'SELECT * FROM habits WHERE is_archived = 0 ORDER BY created_at ASC'
+      'SELECT * FROM habits WHERE is_archived = 0 ORDER BY created_at ASC;'
     );
 
     return habits.map((h) => {
-      // Get today's log
       const todayLog = db.getFirstSync<{ count: number }>(
-        'SELECT count FROM habit_logs WHERE habit_id = ? AND date = ?',
+        'SELECT count FROM habit_logs WHERE habit_id = ? AND date = ?;',
         [h.id, date]
       );
       const todayCount = todayLog ? todayLog.count : 0;
@@ -40,15 +40,11 @@ export class HabitsRepository {
         Math.round((todayCount / (h.target_count || 1)) * 100)
       );
 
-      // Get all logs for streak
       const allLogs = db.getAllSync<HabitLogEntry>(
-        'SELECT date, count FROM habit_logs WHERE habit_id = ? ORDER BY date DESC',
+        'SELECT date, count FROM habit_logs WHERE habit_id = ? ORDER BY date DESC;',
         [h.id]
       );
-      const { currentStreak, last7Days } = calculateHabitStreak(
-        allLogs,
-        h.target_count
-      );
+      const { currentStreak, last7Days } = calculateHabitStreak(allLogs, h.target_count);
 
       return {
         ...h,
@@ -60,13 +56,51 @@ export class HabitsRepository {
     });
   }
 
+  // Async non-blocking
+  static async getAllWithProgressAsync(date: string): Promise<Habit[]> {
+    const db = await getDatabaseAsync();
+    const habits = await db.getAllAsync<Habit>(
+      'SELECT * FROM habits WHERE is_archived = 0 ORDER BY created_at ASC;'
+    );
+
+    const results: Habit[] = [];
+    for (const h of habits) {
+      const todayLog = await db.getFirstAsync<{ count: number }>(
+        'SELECT count FROM habit_logs WHERE habit_id = ? AND date = ?;',
+        [h.id, date]
+      );
+      const todayCount = todayLog ? todayLog.count : 0;
+      const progressPercent = Math.min(
+        100,
+        Math.round((todayCount / (h.target_count || 1)) * 100)
+      );
+
+      const allLogs = await db.getAllAsync<HabitLogEntry>(
+        'SELECT date, count FROM habit_logs WHERE habit_id = ? ORDER BY date DESC;',
+        [h.id]
+      );
+      const { currentStreak, last7Days } = calculateHabitStreak(allLogs, h.target_count);
+
+      results.push({
+        ...h,
+        todayCount,
+        progressPercent,
+        streak: currentStreak,
+        last7Days,
+      });
+    }
+
+    return results;
+  }
+
+  // Sync
   static toggleOrIncrement(habitId: string, date: string): number {
     const db = getDatabase();
-    const habit = db.getFirstSync<Habit>('SELECT * FROM habits WHERE id = ?', [habitId]);
+    const habit = db.getFirstSync<Habit>('SELECT * FROM habits WHERE id = ?;', [habitId]);
     if (!habit) return 0;
 
     const existingLog = db.getFirstSync<{ id: string; count: number }>(
-      'SELECT id, count FROM habit_logs WHERE habit_id = ? AND date = ?',
+      'SELECT id, count FROM habit_logs WHERE habit_id = ? AND date = ?;',
       [habitId, date]
     );
 
@@ -79,10 +113,10 @@ export class HabitsRepository {
       } else {
         newCount = existingLog.count + 1;
       }
-      db.runSync('UPDATE habit_logs SET count = ? WHERE id = ?', [newCount, existingLog.id]);
+      db.runSync('UPDATE habit_logs SET count = ? WHERE id = ?;', [newCount, existingLog.id]);
     } else {
       db.runSync(
-        'INSERT INTO habit_logs (id, habit_id, date, count, created_at) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO habit_logs (id, habit_id, date, count, created_at) VALUES (?, ?, ?, ?, ?);',
         [generateId('hlog'), habitId, date, newCount, now]
       );
     }
@@ -90,6 +124,38 @@ export class HabitsRepository {
     return newCount;
   }
 
+  // Async
+  static async toggleOrIncrementAsync(habitId: string, date: string): Promise<number> {
+    const db = await getDatabaseAsync();
+    const habit = await db.getFirstAsync<Habit>('SELECT * FROM habits WHERE id = ?;', [habitId]);
+    if (!habit) return 0;
+
+    const existingLog = await db.getFirstAsync<{ id: string; count: number }>(
+      'SELECT id, count FROM habit_logs WHERE habit_id = ? AND date = ?;',
+      [habitId, date]
+    );
+
+    let newCount = 1;
+    const now = new Date().toISOString();
+
+    if (existingLog) {
+      if (existingLog.count >= habit.target_count) {
+        newCount = 0;
+      } else {
+        newCount = existingLog.count + 1;
+      }
+      await db.runAsync('UPDATE habit_logs SET count = ? WHERE id = ?;', [newCount, existingLog.id]);
+    } else {
+      await db.runAsync(
+        'INSERT INTO habit_logs (id, habit_id, date, count, created_at) VALUES (?, ?, ?, ?, ?);',
+        [generateId('hlog'), habitId, date, newCount, now]
+      );
+    }
+
+    return newCount;
+  }
+
+  // Sync
   static create(habit: {
     name: string;
     targetCount: number;
@@ -105,7 +171,7 @@ export class HabitsRepository {
 
     db.runSync(
       `INSERT INTO habits (id, name, target_count, unit, frequency, icon, color, reminder_time, is_archived, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?);`,
       [
         id,
         habit.name,
@@ -120,12 +186,53 @@ export class HabitsRepository {
       ]
     );
 
-    return db.getFirstSync<Habit>('SELECT * FROM habits WHERE id = ?', [id])!;
+    return db.getFirstSync<Habit>('SELECT * FROM habits WHERE id = ?;', [id])!;
   }
 
+  // Async
+  static async createAsync(habit: {
+    name: string;
+    targetCount: number;
+    unit: string;
+    frequency: 'daily' | 'weekly';
+    icon: string;
+    color: string;
+    reminderTime?: string | null;
+  }): Promise<Habit> {
+    const db = await getDatabaseAsync();
+    const id = generateId('habit');
+    const now = new Date().toISOString();
+
+    await db.runAsync(
+      `INSERT INTO habits (id, name, target_count, unit, frequency, icon, color, reminder_time, is_archived, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?);`,
+      [
+        id,
+        habit.name,
+        habit.targetCount,
+        habit.unit,
+        habit.frequency,
+        habit.icon,
+        habit.color,
+        habit.reminderTime || null,
+        now,
+        now,
+      ]
+    );
+
+    const created = await db.getFirstAsync<Habit>('SELECT * FROM habits WHERE id = ?;', [id]);
+    return created!;
+  }
+
+  // Sync
   static delete(id: string): void {
     const db = getDatabase();
-    db.runSync('UPDATE habits SET is_archived = 1 WHERE id = ?', [id]);
+    db.runSync('UPDATE habits SET is_archived = 1 WHERE id = ?;', [id]);
+  }
+
+  // Async
+  static async deleteAsync(id: string): Promise<void> {
+    const db = await getDatabaseAsync();
+    await db.runAsync('UPDATE habits SET is_archived = 1 WHERE id = ?;', [id]);
   }
 }
-

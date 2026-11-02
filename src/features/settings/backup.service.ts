@@ -1,4 +1,4 @@
-import { getDatabase, resetDatabase } from '../../db/client';
+import { getDatabaseAsync, resetDatabaseAsync } from '../../db/client';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
@@ -7,28 +7,66 @@ import { STORAGE_KEYS } from '../../constants/storageKeys';
 
 export class BackupService {
   static async exportBackup(): Promise<string> {
-    const db = getDatabase();
+    const db = await getDatabaseAsync();
+
+    const [
+      profile,
+      tasks,
+      habits,
+      habit_logs,
+      focus_sessions,
+      subjects,
+      study_topics,
+      study_sessions,
+      projects,
+      project_tasks,
+      journal_entries,
+      trades,
+      goals,
+      goal_milestones,
+      skills,
+      skill_logs,
+      weekly_reviews,
+    ] = await Promise.all([
+      db.getAllAsync('SELECT * FROM profile;'),
+      db.getAllAsync('SELECT * FROM tasks WHERE deleted_at IS NULL;'),
+      db.getAllAsync('SELECT * FROM habits;'),
+      db.getAllAsync('SELECT * FROM habit_logs;'),
+      db.getAllAsync('SELECT * FROM focus_sessions;'),
+      db.getAllAsync('SELECT * FROM subjects;'),
+      db.getAllAsync('SELECT * FROM study_topics;'),
+      db.getAllAsync('SELECT * FROM study_sessions;'),
+      db.getAllAsync('SELECT * FROM projects;'),
+      db.getAllAsync('SELECT * FROM project_tasks;'),
+      db.getAllAsync('SELECT * FROM journal_entries;'),
+      db.getAllAsync('SELECT * FROM trades;'),
+      db.getAllAsync('SELECT * FROM goals;'),
+      db.getAllAsync('SELECT * FROM goal_milestones;'),
+      db.getAllAsync('SELECT * FROM skills;'),
+      db.getAllAsync('SELECT * FROM skill_logs;'),
+      db.getAllAsync('SELECT * FROM weekly_reviews;'),
+    ]);
 
     const backupData = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
-      profile: db.getAllSync('SELECT * FROM profile'),
-      tasks: db.getAllSync('SELECT * FROM tasks WHERE deleted_at IS NULL'),
-      habits: db.getAllSync('SELECT * FROM habits'),
-      habit_logs: db.getAllSync('SELECT * FROM habit_logs'),
-      focus_sessions: db.getAllSync('SELECT * FROM focus_sessions'),
-      subjects: db.getAllSync('SELECT * FROM subjects'),
-      study_topics: db.getAllSync('SELECT * FROM study_topics'),
-      study_sessions: db.getAllSync('SELECT * FROM study_sessions'),
-      projects: db.getAllSync('SELECT * FROM projects'),
-      project_tasks: db.getAllSync('SELECT * FROM project_tasks'),
-      journal_entries: db.getAllSync('SELECT * FROM journal_entries'),
-      trades: db.getAllSync('SELECT * FROM trades'),
-      goals: db.getAllSync('SELECT * FROM goals'),
-      goal_milestones: db.getAllSync('SELECT * FROM goal_milestones'),
-      skills: db.getAllSync('SELECT * FROM skills'),
-      skill_logs: db.getAllSync('SELECT * FROM skill_logs'),
-      weekly_reviews: db.getAllSync('SELECT * FROM weekly_reviews'),
+      profile,
+      tasks,
+      habits,
+      habit_logs,
+      focus_sessions,
+      subjects,
+      study_topics,
+      study_sessions,
+      projects,
+      project_tasks,
+      journal_entries,
+      trades,
+      goals,
+      goal_milestones,
+      skills,
+      skill_logs,
+      weekly_reviews,
     };
 
     const jsonString = JSON.stringify(backupData, null, 2);
@@ -71,45 +109,48 @@ export class BackupService {
       throw new Error('Invalid GrowPro backup format.');
     }
 
-    resetDatabase();
-    const db = getDatabase();
+    // Reset database with strict foreign-key order
+    await resetDatabaseAsync();
+    const db = await getDatabaseAsync();
 
-    // Restore tables safely
-    const insertRows = (tableName: string, rows: any[]) => {
-      if (!Array.isArray(rows) || rows.length === 0) return;
-      for (const row of rows) {
-        const keys = Object.keys(row);
-        const placeholders = keys.map(() => '?').join(', ');
-        const values = keys.map((k) => row[k]);
-        db.runSync(
-          `INSERT OR REPLACE INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders})`,
-          values
-        );
-      }
-    };
+    // Restore tables inside an atomic transaction
+    await db.withTransactionAsync(async () => {
+      const insertRows = async (tableName: string, rows: any[]) => {
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        for (const row of rows) {
+          const keys = Object.keys(row);
+          const placeholders = keys.map(() => '?').join(', ');
+          const values = keys.map((k) => row[k]);
+          await db.runAsync(
+            `INSERT OR REPLACE INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders});`,
+            values
+          );
+        }
+      };
 
-    insertRows('profile', parsed.profile);
-    insertRows('tasks', parsed.tasks);
-    insertRows('habits', parsed.habits);
-    insertRows('habit_logs', parsed.habit_logs);
-    insertRows('focus_sessions', parsed.focus_sessions);
-    insertRows('subjects', parsed.subjects);
-    insertRows('study_topics', parsed.study_topics);
-    insertRows('study_sessions', parsed.study_sessions);
-    insertRows('projects', parsed.projects);
-    insertRows('project_tasks', parsed.project_tasks);
-    insertRows('journal_entries', parsed.journal_entries);
-    insertRows('trades', parsed.trades);
-    insertRows('goals', parsed.goals);
-    insertRows('goal_milestones', parsed.goal_milestones);
-    insertRows('skills', parsed.skills);
-    insertRows('skill_logs', parsed.skill_logs);
-    insertRows('weekly_reviews', parsed.weekly_reviews);
+      await insertRows('profile', parsed.profile);
+      await insertRows('tasks', parsed.tasks);
+      await insertRows('habits', parsed.habits);
+      await insertRows('habit_logs', parsed.habit_logs);
+      await insertRows('focus_sessions', parsed.focus_sessions);
+      await insertRows('subjects', parsed.subjects);
+      await insertRows('study_topics', parsed.study_topics);
+      await insertRows('study_sessions', parsed.study_sessions);
+      await insertRows('projects', parsed.projects);
+      await insertRows('project_tasks', parsed.project_tasks);
+      await insertRows('journal_entries', parsed.journal_entries);
+      await insertRows('trades', parsed.trades);
+      await insertRows('goals', parsed.goals);
+      await insertRows('goal_milestones', parsed.goal_milestones);
+      await insertRows('skills', parsed.skills);
+      await insertRows('skill_logs', parsed.skill_logs);
+      await insertRows('weekly_reviews', parsed.weekly_reviews);
+    });
 
     return true;
   }
 
-  static clearAllData(): void {
-    resetDatabase();
+  static async clearAllData(): Promise<void> {
+    await resetDatabaseAsync();
   }
 }

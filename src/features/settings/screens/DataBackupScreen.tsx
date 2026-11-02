@@ -51,9 +51,13 @@ export const DataBackupScreen: React.FC = () => {
         {
           text: 'Erase Everything',
           style: 'destructive',
-          onPress: () => {
-            BackupService.clearAllData();
-            Alert.alert('Data Cleared', 'Your database has been reset.');
+          onPress: async () => {
+            try {
+              await BackupService.clearAllData();
+              Alert.alert('Data Cleared', 'Your database has been reset.');
+            } catch (err: unknown) {
+              Alert.alert('Error', err instanceof Error ? err.message : 'Failed to clear data');
+            }
           },
         },
       ]
