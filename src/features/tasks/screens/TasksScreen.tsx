@@ -98,29 +98,22 @@ export const TasksScreen: React.FC = () => {
   return (
     <Screen backgroundColor={colors.background} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.container}>
-        {/* Top Navigation Bar with Back Button */}
-        <View style={styles.topNav}>
-          <TouchableOpacity
-            onPress={() => {
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                (navigation as any).openDrawer?.();
-              }
-            }}
-            style={styles.backBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-          >
-            <Ionicons
-              name={navigation.canGoBack() ? 'arrow-back' : 'menu-outline'}
-              size={24}
-              color={colors.textPrimary}
-            />
-          </TouchableOpacity>
-          <Text style={[styles.topTitle, typography.h2, { color: colors.textPrimary }]}>
-            Tasks & Schedule
-          </Text>
+        {/* Top Header with Menu Button like other screens */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => (navigation as any).openDrawer ? (navigation as any).openDrawer() : navigation.goBack()}
+              style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open Menu"
+            >
+              <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]}>
+              Tasks & Schedule
+            </Text>
+          </View>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setIsAddModalOpen(true)}
@@ -385,17 +378,26 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
-  topNav: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    marginVertical: 8,
   },
-  backBtn: {
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuBtn: {
     width: 40,
     height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerTitle: {
+    fontWeight: '800',
   },
   addBtn: {
     width: 42,
@@ -403,9 +405,6 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  topTitle: {
-    fontWeight: '700',
   },
   dateHeader: {
     flexDirection: 'row',

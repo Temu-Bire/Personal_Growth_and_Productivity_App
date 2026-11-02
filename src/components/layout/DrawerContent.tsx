@@ -40,7 +40,7 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
 
   const activeRouteName = state.routes[state.index]?.name;
 
-  // Single unified color for sidebar items
+  // Single unified color for all sidebar items
   const INACTIVE_ITEM_COLOR = '#E2E8F0';
   const ACTIVE_ITEM_COLOR = '#FFFFFF';
 
@@ -54,143 +54,151 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.drawerBg }]} edges={['top', 'bottom']}>
-      {/* Profile Section with distinct card styling & tap-to-edit */}
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={handleOpenProfile}
-        style={[styles.profileCard, { borderRadius: radius.lg }]}
-        accessibilityRole="button"
-        accessibilityLabel="Edit Profile"
-      >
-        <View style={styles.profileRow}>
-          <View style={styles.avatarContainer}>
-            {profileAvatar ? (
-              <Image source={{ uri: profileAvatar }} style={styles.avatarImage} />
-            ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: '#1E8E4E' }]}>
-                <Text style={styles.avatarInitials}>
-                  {profileName ? profileName.charAt(0).toUpperCase() : 'G'}
+    <View style={[styles.container, { backgroundColor: colors.drawerBg }]}>
+      {/* Top Header Section above divider with profile color */}
+      <View style={[styles.topProfileHeader, { backgroundColor: '#082E19' }]}>
+        <SafeAreaView edges={['top']} style={styles.topSafeArea}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleOpenProfile}
+            style={styles.profileTouchable}
+            accessibilityRole="button"
+            accessibilityLabel="Edit Profile"
+          >
+            <View style={styles.profileRow}>
+              <View style={styles.avatarContainer}>
+                {profileAvatar ? (
+                  <Image source={{ uri: profileAvatar }} style={styles.avatarImage} />
+                ) : (
+                  <View style={[styles.avatarPlaceholder, { backgroundColor: '#1E8E4E' }]}>
+                    <Text style={styles.avatarInitials}>
+                      {profileName ? profileName.charAt(0).toUpperCase() : 'G'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.profileInfoCol}>
+                <View style={styles.nameWithEditRow}>
+                  <Text style={[styles.profileName, typography.h2, { color: '#FFFFFF' }]} numberOfLines={1}>
+                    {profileName || 'Temesgen'}
+                  </Text>
+                  <View style={styles.pencilCircle}>
+                    <Ionicons name="pencil-outline" size={13} color="#A7F3D0" />
+                  </View>
+                </View>
+                <Text style={[styles.profileBadge, typography.caption, { color: '#A7F3D0' }]}>
+                  {profileFocus ? `${profileFocus} · Offline` : 'Local profile · Offline'}
                 </Text>
               </View>
-            )}
-          </View>
-
-          <View style={styles.profileInfoCol}>
-            <View style={styles.nameWithEditRow}>
-              <Text style={[styles.profileName, typography.h2, { color: '#FFFFFF' }]} numberOfLines={1}>
-                {profileName || 'Temesgen'}
-              </Text>
-              <View style={styles.pencilCircle}>
-                <Ionicons name="pencil-outline" size={13} color="#A7F3D0" />
-              </View>
             </View>
-            <Text style={[styles.profileBadge, typography.caption, { color: '#A7F3D0' }]}>
-              {profileFocus ? `${profileFocus} · Offline` : 'Local profile · Offline'}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
+          </TouchableOpacity>
+        </SafeAreaView>
+        <View style={styles.divider} />
+      </View>
 
-      <View style={styles.divider} />
+      {/* Main Drawer Body */}
+      <View style={styles.body}>
+        {/* Nav List - All items share one unified color */}
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+          {MENU_ITEMS.map((item) => {
+            const isActive = activeRouteName === item.name;
+            const itemColor = isActive ? ACTIVE_ITEM_COLOR : INACTIVE_ITEM_COLOR;
 
-      {/* Nav List - All items share one unified color */}
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        {MENU_ITEMS.map((item) => {
-          const isActive = activeRouteName === item.name;
-          const itemColor = isActive ? ACTIVE_ITEM_COLOR : INACTIVE_ITEM_COLOR;
-
-          return (
-            <TouchableOpacity
-              key={item.name}
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate(item.name)}
-              style={[
-                styles.navItem,
-                {
-                  borderRadius: radius.md,
-                  backgroundColor: isActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
-                },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={item.label}
-            >
-              <Ionicons
-                name={item.icon}
-                size={22}
-                color={itemColor}
-                style={styles.navIcon}
-              />
-              <Text
+            return (
+              <TouchableOpacity
+                key={item.name}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate(item.name)}
                 style={[
-                  styles.navLabel,
-                  typography.bodyMedium,
+                  styles.navItem,
                   {
-                    color: itemColor,
-                    fontWeight: isActive ? '700' : '500',
+                    borderRadius: radius.md,
+                    backgroundColor: isActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
                   },
                 ]}
+                accessibilityRole="button"
+                accessibilityLabel={item.label}
               >
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+                <Ionicons
+                  name={item.icon}
+                  size={22}
+                  color={itemColor}
+                  style={styles.navIcon}
+                />
+                <Text
+                  style={[
+                    styles.navLabel,
+                    typography.bodyMedium,
+                    {
+                      color: itemColor,
+                      fontWeight: isActive ? '700' : '500',
+                    },
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
-      {/* Footer Lock Action with distinct suitable button styling */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={handleLockNow}
-          style={[styles.lockBtn, { borderRadius: radius.round }]}
-          accessibilityRole="button"
-          accessibilityLabel="Lock App Now"
-        >
-          <View style={styles.lockIconBadge}>
-            <Ionicons name="lock-closed" size={16} color="#F59E0B" />
-          </View>
-          <Text style={[typography.bodyMedium, styles.lockBtnText]}>
-            Lock App Now
-          </Text>
-        </TouchableOpacity>
+        {/* Footer Lock Action with distinct suitable button styling */}
+        <SafeAreaView edges={['bottom']} style={styles.footer}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleLockNow}
+            style={[styles.lockBtn, { borderRadius: radius.round }]}
+            accessibilityRole="button"
+            accessibilityLabel="Lock App Now"
+          >
+            <View style={styles.lockIconBadge}>
+              <Ionicons name="lock-closed" size={16} color="#F59E0B" />
+            </View>
+            <Text style={[typography.bodyMedium, styles.lockBtnText]}>
+              Lock App Now
+            </Text>
+          </TouchableOpacity>
+        </SafeAreaView>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
   },
-  profileCard: {
-    backgroundColor: '#082E19',
-    borderWidth: 1,
-    borderColor: 'rgba(167, 243, 208, 0.22)',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginTop: 6,
-    marginBottom: 6,
+  topProfileHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(167, 243, 208, 0.15)',
+  },
+  topSafeArea: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  profileTouchable: {
+    paddingVertical: 6,
   },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   avatarContainer: {
-    marginRight: 12,
+    marginRight: 14,
   },
   avatarImage: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     borderWidth: 2,
     borderColor: '#34A863',
   },
   avatarPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -224,13 +232,17 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   profileBadge: {
-    marginTop: 3,
+    marginTop: 4,
     fontSize: 12,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginVertical: 10,
+    backgroundColor: 'rgba(167, 243, 208, 0.15)',
+  },
+  body: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 6,
   },
   scroll: {
     flex: 1,
@@ -249,7 +261,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   footer: {
-    paddingVertical: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
