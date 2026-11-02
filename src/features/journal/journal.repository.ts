@@ -115,5 +115,74 @@ export class JournalRepository {
     const sum = rows.reduce((acc, r) => acc + r.mood, 0);
     return Number((sum / rows.length).toFixed(1));
   }
+
+  // Delete
+  static deleteEntry(id: string): boolean {
+    const db = getDatabase();
+    db.runSync('DELETE FROM journal_entries WHERE id = ?;', [id]);
+    return true;
+  }
+
+  static async deleteEntryAsync(id: string): Promise<boolean> {
+    const db = await getDatabaseAsync();
+    await db.runAsync('DELETE FROM journal_entries WHERE id = ?;', [id]);
+    return true;
+  }
+
+  // Update
+  static updateEntry(
+    id: string,
+    data: { date?: string; mood?: number; content?: string; tags?: string[] }
+  ): JournalEntry | null {
+    const db = getDatabase();
+    const existing = db.getFirstSync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?;', [id]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const date = data.date || existing.date;
+    const mood = data.mood !== undefined ? data.mood : existing.mood;
+    const content = data.content !== undefined ? data.content : existing.content;
+    const tagsJson = data.tags !== undefined ? JSON.stringify(data.tags) : existing.tags;
+
+    db.runSync(
+      'UPDATE journal_entries SET date = ?, mood = ?, content = ?, tags = ?, updated_at = ? WHERE id = ?;',
+      [date, mood, content, tagsJson, now, id]
+    );
+
+    return db.getFirstSync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?;', [id]);
+  }
+
+  static async updateEntryAsync(
+    id: string,
+    data: { date?: string; mood?: number; content?: string; tags?: string[] }
+  ): Promise<JournalEntry | null> {
+    const db = await getDatabaseAsync();
+    const existing = await db.getFirstAsync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?;', [id]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const date = data.date || existing.date;
+    const mood = data.mood !== undefined ? data.mood : existing.mood;
+    const content = data.content !== undefined ? data.content : existing.content;
+    const tagsJson = data.tags !== undefined ? JSON.stringify(data.tags) : existing.tags;
+
+    await db.runAsync(
+      'UPDATE journal_entries SET date = ?, mood = ?, content = ?, tags = ?, updated_at = ? WHERE id = ?;',
+      [date, mood, content, tagsJson, now, id]
+    );
+
+    return db.getFirstAsync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?;', [id]);
+  }
+
+  // Get latest journal entry for dashboard
+  static getLatestEntry(): JournalEntry | null {
+    const db = getDatabase();
+    return db.getFirstSync<JournalEntry>('SELECT * FROM journal_entries ORDER BY date DESC, created_at DESC LIMIT 1;');
+  }
+
+  static async getLatestEntryAsync(): Promise<JournalEntry | null> {
+    const db = await getDatabaseAsync();
+    return db.getFirstAsync<JournalEntry>('SELECT * FROM journal_entries ORDER BY date DESC, created_at DESC LIMIT 1;');
+  }
 }
 

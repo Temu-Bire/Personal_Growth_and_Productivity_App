@@ -12,6 +12,7 @@ export const DB_NAME = 'growpro.db';
  * Child tables with foreign-key references are dropped before their respective parent tables.
  */
 export const TABLE_DELETION_ORDER = [
+  'ideas',
   'weekly_reviews',
   'skill_logs',       // references skills
   'skills',

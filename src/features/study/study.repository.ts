@@ -192,4 +192,137 @@ export class StudyRepository {
     const created = await db.getFirstAsync<Subject>('SELECT * FROM subjects WHERE id = ?;', [id]);
     return created!;
   }
+
+  // Update Subject
+  static updateSubject(id: string, name: string, color?: string): Subject | null {
+    const db = getDatabase();
+    const existing = db.getFirstSync<Subject>('SELECT * FROM subjects WHERE id = ?;', [id]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const newName = name.trim();
+    const newColor = color || existing.color;
+
+    db.runSync('UPDATE subjects SET name = ?, color = ?, updated_at = ? WHERE id = ?;', [
+      newName,
+      newColor,
+      now,
+      id,
+    ]);
+
+    return db.getFirstSync<Subject>('SELECT * FROM subjects WHERE id = ?;', [id]);
+  }
+
+  static async updateSubjectAsync(id: string, name: string, color?: string): Promise<Subject | null> {
+    const db = await getDatabaseAsync();
+    const existing = await db.getFirstAsync<Subject>('SELECT * FROM subjects WHERE id = ?;', [id]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const newName = name.trim();
+    const newColor = color || existing.color;
+
+    await db.runAsync('UPDATE subjects SET name = ?, color = ?, updated_at = ? WHERE id = ?;', [
+      newName,
+      newColor,
+      now,
+      id,
+    ]);
+
+    return db.getFirstAsync<Subject>('SELECT * FROM subjects WHERE id = ?;', [id]);
+  }
+
+  // Delete Subject (with child topics and sessions in transaction)
+  static deleteSubject(id: string): boolean {
+    const db = getDatabase();
+    db.withTransactionSync(() => {
+      db.runSync('DELETE FROM study_sessions WHERE subject_id = ?;', [id]);
+      db.runSync('DELETE FROM study_topics WHERE subject_id = ?;', [id]);
+      db.runSync('DELETE FROM subjects WHERE id = ?;', [id]);
+    });
+    return true;
+  }
+
+  static async deleteSubjectAsync(id: string): Promise<boolean> {
+    const db = await getDatabaseAsync();
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('DELETE FROM study_sessions WHERE subject_id = ?;', [id]);
+      await db.runAsync('DELETE FROM study_topics WHERE subject_id = ?;', [id]);
+      await db.runAsync('DELETE FROM subjects WHERE id = ?;', [id]);
+    });
+    return true;
+  }
+
+  // Study Schedule Session CRUD
+  static updateSession(
+    sessionId: string,
+    data: { startTime?: string; endTime?: string; dayOfWeek?: number }
+  ): boolean {
+    const db = getDatabase();
+    const existing = db.getFirstSync<StudyScheduleSession>('SELECT * FROM study_sessions WHERE id = ?;', [sessionId]);
+    if (!existing) return false;
+
+    const start = data.startTime || existing.start_time;
+    const end = data.endTime || existing.end_time;
+    const day = data.dayOfWeek !== undefined ? data.dayOfWeek : existing.day_of_week;
+
+    db.runSync('UPDATE study_sessions SET start_time = ?, end_time = ?, day_of_week = ? WHERE id = ?;', [
+      start,
+      end,
+      day,
+      sessionId,
+    ]);
+    return true;
+  }
+
+  static deleteSession(sessionId: string): boolean {
+    const db = getDatabase();
+    db.runSync('DELETE FROM study_sessions WHERE id = ?;', [sessionId]);
+    return true;
+  }
+
+  // Topics CRUD
+  static addTopic(subjectId: string, title: string): StudyTopic {
+    const db = getDatabase();
+    const id = generateId('stopic');
+    const now = new Date().toISOString();
+    db.runSync(
+      'INSERT INTO study_topics (id, subject_id, title, is_completed, order_index, created_at) VALUES (?, ?, ?, 0, 0, ?);',
+      [id, subjectId, title.trim(), now]
+    );
+    return db.getFirstSync<StudyTopic>('SELECT * FROM study_topics WHERE id = ?;', [id])!;
+  }
+
+  static deleteTopic(topicId: string): boolean {
+    const db = getDatabase();
+    db.runSync('DELETE FROM study_topics WHERE id = ?;', [topicId]);
+    return true;
+  }
+
+  // Get today's study plan for dashboard
+  static getTodayPlan(): { subjectName: string; time: string; color: string } | null {
+    const dayOfWeek = new Date().getDay(); // 0 is Sunday, 1 is Monday...
+    const sessions = this.getScheduleSessions(dayOfWeek);
+    if (sessions.length > 0) {
+      const first = sessions[0];
+      return {
+        subjectName: first.subject_name || 'Study Session',
+        time: `${first.start_time} - ${first.end_time}`,
+        color: first.subject_color || '#1E8E4E',
+      };
+    }
+
+    // Fallback to top active subject
+    const subjects = this.getSubjectsWithProgress();
+    const activeSubj = subjects.find((s) => (s.progressPercent || 0) < 100) || subjects[0];
+    if (activeSubj) {
+      return {
+        subjectName: activeSubj.name,
+        time: `${activeSubj.progressPercent || 0}% covered`,
+        color: activeSubj.color,
+      };
+    }
+
+    return null;
+  }
 }

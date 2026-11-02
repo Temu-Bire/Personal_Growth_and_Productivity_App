@@ -45,10 +45,11 @@ export class BackupService {
       db.getAllAsync('SELECT * FROM skills;'),
       db.getAllAsync('SELECT * FROM skill_logs;'),
       db.getAllAsync('SELECT * FROM weekly_reviews;'),
+      db.getAllAsync('SELECT * FROM ideas;'),
     ]);
 
     const backupData = {
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
       profile,
       tasks,
@@ -67,6 +68,7 @@ export class BackupService {
       skills,
       skill_logs,
       weekly_reviews,
+      ideas,
     };
 
     const jsonString = JSON.stringify(backupData, null, 2);
@@ -145,6 +147,7 @@ export class BackupService {
       await insertRows('skills', parsed.skills);
       await insertRows('skill_logs', parsed.skill_logs);
       await insertRows('weekly_reviews', parsed.weekly_reviews);
+      await insertRows('ideas', parsed.ideas);
     });
 
     return true;

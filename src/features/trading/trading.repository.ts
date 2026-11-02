@@ -142,4 +142,83 @@ export class TradingRepository {
     const db = await getDatabaseAsync();
     await db.runAsync('DELETE FROM trades WHERE id = ?;', [id]);
   }
+
+  // Update
+  static updateTrade(
+    id: string,
+    trade: {
+      pair?: string;
+      direction?: 'buy' | 'sell';
+      entryPrice?: number;
+      exitPrice?: number;
+      lotSize?: number;
+      pnl?: number;
+      date?: string;
+      notes?: string | null;
+      screenshotUri?: string | null;
+    }
+  ): Trade | null {
+    const db = getDatabase();
+    const existing = db.getFirstSync<Trade>('SELECT * FROM trades WHERE id = ?;', [id]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const pair = trade.pair !== undefined ? trade.pair.toUpperCase() : existing.pair;
+    const direction = trade.direction !== undefined ? trade.direction : existing.direction;
+    const entryPrice = trade.entryPrice !== undefined ? trade.entryPrice : existing.entry_price;
+    const exitPrice = trade.exitPrice !== undefined ? trade.exitPrice : existing.exit_price;
+    const lotSize = trade.lotSize !== undefined ? trade.lotSize : existing.lot_size;
+    const pnl = trade.pnl !== undefined ? trade.pnl : existing.pnl;
+    const date = trade.date !== undefined ? trade.date : existing.date;
+    const notes = trade.notes !== undefined ? trade.notes : existing.notes;
+    const screenshotUri = trade.screenshotUri !== undefined ? trade.screenshotUri : existing.screenshot_uri;
+
+    db.runSync(
+      `UPDATE trades
+       SET pair = ?, direction = ?, entry_price = ?, exit_price = ?, lot_size = ?, pnl = ?, date = ?, notes = ?, screenshot_uri = ?, updated_at = ?
+       WHERE id = ?;`,
+      [pair, direction, entryPrice, exitPrice, lotSize, pnl, date, notes, screenshotUri, now, id]
+    );
+
+    return db.getFirstSync<Trade>('SELECT * FROM trades WHERE id = ?;', [id]);
+  }
+
+  static async updateTradeAsync(
+    id: string,
+    trade: {
+      pair?: string;
+      direction?: 'buy' | 'sell';
+      entryPrice?: number;
+      exitPrice?: number;
+      lotSize?: number;
+      pnl?: number;
+      date?: string;
+      notes?: string | null;
+      screenshotUri?: string | null;
+    }
+  ): Promise<Trade | null> {
+    const db = await getDatabaseAsync();
+    const existing = await db.getFirstAsync<Trade>('SELECT * FROM trades WHERE id = ?;', [id]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const pair = trade.pair !== undefined ? trade.pair.toUpperCase() : existing.pair;
+    const direction = trade.direction !== undefined ? trade.direction : existing.direction;
+    const entryPrice = trade.entryPrice !== undefined ? trade.entryPrice : existing.entry_price;
+    const exitPrice = trade.exitPrice !== undefined ? trade.exitPrice : existing.exit_price;
+    const lotSize = trade.lotSize !== undefined ? trade.lotSize : existing.lot_size;
+    const pnl = trade.pnl !== undefined ? trade.pnl : existing.pnl;
+    const date = trade.date !== undefined ? trade.date : existing.date;
+    const notes = trade.notes !== undefined ? trade.notes : existing.notes;
+    const screenshotUri = trade.screenshotUri !== undefined ? trade.screenshotUri : existing.screenshot_uri;
+
+    await db.runAsync(
+      `UPDATE trades
+       SET pair = ?, direction = ?, entry_price = ?, exit_price = ?, lot_size = ?, pnl = ?, date = ?, notes = ?, screenshot_uri = ?, updated_at = ?
+       WHERE id = ?;`,
+      [pair, direction, entryPrice, exitPrice, lotSize, pnl, date, notes, screenshotUri, now, id]
+    );
+
+    return db.getFirstAsync<Trade>('SELECT * FROM trades WHERE id = ?;', [id]);
+  }
 }

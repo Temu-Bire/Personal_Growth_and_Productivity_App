@@ -179,4 +179,124 @@ export class ProjectsRepository {
     const created = await db.getFirstAsync<Project>('SELECT * FROM projects WHERE id = ?;', [id]);
     return created!;
   }
+
+  // Update Project
+  static update(
+    id: string,
+    data: {
+      title?: string;
+      dueDate?: string;
+      color?: string;
+      status?: 'planning' | 'in_progress' | 'completed' | 'on_hold';
+    }
+  ): Project | null {
+    const db = getDatabase();
+    const existing = db.getFirstSync<Project>('SELECT * FROM projects WHERE id = ?;', [id]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const title = data.title !== undefined ? data.title.trim() : existing.title;
+    const dueDate = data.dueDate !== undefined ? data.dueDate : existing.due_date;
+    const color = data.color !== undefined ? data.color : existing.color;
+    const status = data.status !== undefined ? data.status : existing.status;
+
+    db.runSync(
+      'UPDATE projects SET title = ?, due_date = ?, color = ?, status = ?, updated_at = ? WHERE id = ?;',
+      [title, dueDate, color, status, now, id]
+    );
+
+    return db.getFirstSync<Project>('SELECT * FROM projects WHERE id = ?;', [id]);
+  }
+
+  static async updateAsync(
+    id: string,
+    data: {
+      title?: string;
+      dueDate?: string;
+      color?: string;
+      status?: 'planning' | 'in_progress' | 'completed' | 'on_hold';
+    }
+  ): Promise<Project | null> {
+    const db = await getDatabaseAsync();
+    const existing = await db.getFirstAsync<Project>('SELECT * FROM projects WHERE id = ?;', [id]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const title = data.title !== undefined ? data.title.trim() : existing.title;
+    const dueDate = data.dueDate !== undefined ? data.dueDate : existing.due_date;
+    const color = data.color !== undefined ? data.color : existing.color;
+    const status = data.status !== undefined ? data.status : existing.status;
+
+    await db.runAsync(
+      'UPDATE projects SET title = ?, due_date = ?, color = ?, status = ?, updated_at = ? WHERE id = ?;',
+      [title, dueDate, color, status, now, id]
+    );
+
+    return db.getFirstAsync<Project>('SELECT * FROM projects WHERE id = ?;', [id]);
+  }
+
+  // Delete Project with tasks
+  static delete(id: string): boolean {
+    const db = getDatabase();
+    db.withTransactionSync(() => {
+      db.runSync('DELETE FROM project_tasks WHERE project_id = ?;', [id]);
+      db.runSync('DELETE FROM projects WHERE id = ?;', [id]);
+    });
+    return true;
+  }
+
+  static async deleteAsync(id: string): Promise<boolean> {
+    const db = await getDatabaseAsync();
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('DELETE FROM project_tasks WHERE project_id = ?;', [id]);
+      await db.runAsync('DELETE FROM projects WHERE id = ?;', [id]);
+    });
+    return true;
+  }
+
+  static addProjectTask(projectId: string, title: string): ProjectTask {
+    const db = getDatabase();
+    const id = generateId('ptask');
+    const now = new Date().toISOString();
+    db.runSync(
+      'INSERT INTO project_tasks (id, project_id, title, is_completed, created_at) VALUES (?, ?, ?, 0, ?);',
+      [id, projectId, title.trim(), now]
+    );
+    return db.getFirstSync<ProjectTask>('SELECT * FROM project_tasks WHERE id = ?;', [id])!;
+  }
+
+  static deleteProjectTask(taskId: string): boolean {
+    const db = getDatabase();
+    db.runSync('DELETE FROM project_tasks WHERE id = ?;', [taskId]);
+    return true;
+  }
+
+  // Get active project with latest notes/tasks for dashboard
+  static getActiveProject(): (Project & { latestNote?: string }) | null {
+    const list = this.getAllWithProgress();
+    const active = list.find((p) => p.status !== 'completed') || list[0] || null;
+    if (!active) return null;
+
+    const tasks = this.getProjectTasks(active.id);
+    const latestTask = tasks.find((t) => t.is_completed === 0) || tasks[tasks.length - 1];
+
+    return {
+      ...active,
+      latestNote: latestTask ? latestTask.title : 'All milestones on track',
+    };
+  }
+
+  static async getActiveProjectAsync(): Promise<(Project & { latestNote?: string }) | null> {
+    const list = await this.getAllWithProgressAsync();
+    const active = list.find((p) => p.status !== 'completed') || list[0] || null;
+    if (!active) return null;
+
+    const tasks = await this.getProjectTasksAsync(active.id);
+    const latestTask = tasks.find((t) => t.is_completed === 0) || tasks[tasks.length - 1];
+
+    return {
+      ...active,
+      latestNote: latestTask ? latestTask.title : 'All milestones on track',
+    };
+  }
 }

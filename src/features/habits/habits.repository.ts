@@ -227,12 +227,124 @@ export class HabitsRepository {
   // Sync
   static delete(id: string): void {
     const db = getDatabase();
-    db.runSync('UPDATE habits SET is_archived = 1 WHERE id = ?;', [id]);
+    db.withTransactionSync(() => {
+      db.runSync('DELETE FROM habit_logs WHERE habit_id = ?;', [id]);
+      db.runSync('DELETE FROM habits WHERE id = ?;', [id]);
+    });
   }
 
   // Async
   static async deleteAsync(id: string): Promise<void> {
     const db = await getDatabaseAsync();
-    await db.runAsync('UPDATE habits SET is_archived = 1 WHERE id = ?;', [id]);
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('DELETE FROM habit_logs WHERE habit_id = ?;', [id]);
+      await db.runAsync('DELETE FROM habits WHERE id = ?;', [id]);
+    });
+  }
+
+  // Update
+  static update(
+    id: string,
+    habit: {
+      name?: string;
+      targetCount?: number;
+      unit?: string;
+      frequency?: 'daily' | 'weekly';
+      icon?: string;
+      color?: string;
+      reminderTime?: string | null;
+    }
+  ): Habit | null {
+    const db = getDatabase();
+    const existing = db.getFirstSync<Habit>('SELECT * FROM habits WHERE id = ?;', [id]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const name = habit.name !== undefined ? habit.name.trim() : existing.name;
+    const targetCount = habit.targetCount !== undefined ? habit.targetCount : existing.target_count;
+    const unit = habit.unit !== undefined ? habit.unit : existing.unit;
+    const frequency = habit.frequency !== undefined ? habit.frequency : existing.frequency;
+    const icon = habit.icon !== undefined ? habit.icon : existing.icon;
+    const color = habit.color !== undefined ? habit.color : existing.color;
+    const reminderTime = habit.reminderTime !== undefined ? habit.reminderTime : existing.reminder_time;
+
+    db.runSync(
+      `UPDATE habits
+       SET name = ?, target_count = ?, unit = ?, frequency = ?, icon = ?, color = ?, reminder_time = ?, updated_at = ?
+       WHERE id = ?;`,
+      [name, targetCount, unit, frequency, icon, color, reminderTime, now, id]
+    );
+
+    return db.getFirstSync<Habit>('SELECT * FROM habits WHERE id = ?;', [id]);
+  }
+
+  static async updateAsync(
+    id: string,
+    habit: {
+      name?: string;
+      targetCount?: number;
+      unit?: string;
+      frequency?: 'daily' | 'weekly';
+      icon?: string;
+      color?: string;
+      reminderTime?: string | null;
+    }
+  ): Promise<Habit | null> {
+    const db = await getDatabaseAsync();
+    const existing = await db.getFirstAsync<Habit>('SELECT * FROM habits WHERE id = ?;', [id]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const name = habit.name !== undefined ? habit.name.trim() : existing.name;
+    const targetCount = habit.targetCount !== undefined ? habit.targetCount : existing.target_count;
+    const unit = habit.unit !== undefined ? habit.unit : existing.unit;
+    const frequency = habit.frequency !== undefined ? habit.frequency : existing.frequency;
+    const icon = habit.icon !== undefined ? habit.icon : existing.icon;
+    const color = habit.color !== undefined ? habit.color : existing.color;
+    const reminderTime = habit.reminderTime !== undefined ? habit.reminderTime : existing.reminder_time;
+
+    await db.runAsync(
+      `UPDATE habits
+       SET name = ?, target_count = ?, unit = ?, frequency = ?, icon = ?, color = ?, reminder_time = ?, updated_at = ?
+       WHERE id = ?;`,
+      [name, targetCount, unit, frequency, icon, color, reminderTime, now, id]
+    );
+
+    return db.getFirstAsync<Habit>('SELECT * FROM habits WHERE id = ?;', [id]);
+  }
+
+  // Get full habit details for Habit Detail Screen / Modal
+  static getHabitDetails(id: string, todayStr: string): (Habit & { totalCompletedDays: number; completionHistory: HabitLogEntry[] }) | null {
+    const db = getDatabase();
+    const habit = db.getFirstSync<Habit>('SELECT * FROM habits WHERE id = ?;', [id]);
+    if (!habit) return null;
+
+    const todayLog = db.getFirstSync<{ count: number }>(
+      'SELECT count FROM habit_logs WHERE habit_id = ? AND date = ?;',
+      [id, todayStr]
+    );
+    const todayCount = todayLog ? todayLog.count : 0;
+    const progressPercent = Math.min(100, Math.round((todayCount / (habit.target_count || 1)) * 100));
+
+    const allLogs = db.getAllSync<HabitLogEntry>(
+      'SELECT date, count FROM habit_logs WHERE habit_id = ? ORDER BY date DESC LIMIT 30;',
+      [id]
+    );
+    const { currentStreak, last7Days } = calculateHabitStreak(allLogs, habit.target_count);
+
+    const totalLogs = db.getAllSync<{ count: number }>(
+      'SELECT count FROM habit_logs WHERE habit_id = ? AND count >= ?;',
+      [id, habit.target_count || 1]
+    );
+
+    return {
+      ...habit,
+      todayCount,
+      progressPercent,
+      streak: currentStreak,
+      last7Days,
+      totalCompletedDays: totalLogs.length,
+      completionHistory: allLogs,
+    };
   }
 }

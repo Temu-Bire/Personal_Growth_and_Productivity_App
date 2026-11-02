@@ -167,4 +167,30 @@ export class TasksRepository {
     const db = await getDatabaseAsync();
     await db.runAsync('UPDATE tasks SET deleted_at = ? WHERE id = ?;', [new Date().toISOString(), id]);
   }
+
+  // Get most relevant pending or in-progress task for dashboard
+  static getCurrentTask(date: string): Task | null {
+    const db = getDatabase();
+    // Prefer incomplete priority task, then incomplete regular task by start_time
+    const task = db.getFirstSync<Task>(
+      `SELECT * FROM tasks
+       WHERE date = ? AND is_completed = 0 AND deleted_at IS NULL
+       ORDER BY is_priority DESC, start_time ASC, created_at ASC
+       LIMIT 1;`,
+      [date]
+    );
+    return task || null;
+  }
+
+  static async getCurrentTaskAsync(date: string): Promise<Task | null> {
+    const db = await getDatabaseAsync();
+    const task = await db.getFirstAsync<Task>(
+      `SELECT * FROM tasks
+       WHERE date = ? AND is_completed = 0 AND deleted_at IS NULL
+       ORDER BY is_priority DESC, start_time ASC, created_at ASC
+       LIMIT 1;`,
+      [date]
+    );
+    return task || null;
+  }
 }

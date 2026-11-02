@@ -227,5 +227,91 @@ export class GoalsRepository {
       goalId,
     ]);
   }
+
+  static updateGoal(
+    goalId: string,
+    data: {
+      title?: string;
+      dueDate?: string;
+      category?: string;
+      targetValue?: number;
+      unit?: string;
+    }
+  ): Goal | null {
+    const db = getDatabase();
+    const existing = db.getFirstSync<Goal>('SELECT * FROM goals WHERE id = ?', [goalId]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const title = data.title !== undefined ? data.title.trim() : existing.title;
+    const dueDate = data.dueDate !== undefined ? data.dueDate : existing.due_date;
+    const category = data.category !== undefined ? data.category : existing.category;
+    const targetValue = data.targetValue !== undefined ? data.targetValue : existing.target_value;
+    const unit = data.unit !== undefined ? data.unit : existing.unit;
+
+    db.runSync(
+      `UPDATE goals SET title = ?, due_date = ?, category = ?, target_value = ?, unit = ?, updated_at = ? WHERE id = ?`,
+      [title, dueDate, category, targetValue, unit, now, goalId]
+    );
+
+    return db.getFirstSync<Goal>('SELECT * FROM goals WHERE id = ?', [goalId]);
+  }
+
+  static async updateGoalAsync(
+    goalId: string,
+    data: {
+      title?: string;
+      dueDate?: string;
+      category?: string;
+      targetValue?: number;
+      unit?: string;
+    }
+  ): Promise<Goal | null> {
+    const db = await getDatabaseAsync();
+    const existing = await db.getFirstAsync<Goal>('SELECT * FROM goals WHERE id = ?', [goalId]);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const title = data.title !== undefined ? data.title.trim() : existing.title;
+    const dueDate = data.dueDate !== undefined ? data.dueDate : existing.due_date;
+    const category = data.category !== undefined ? data.category : existing.category;
+    const targetValue = data.targetValue !== undefined ? data.targetValue : existing.target_value;
+    const unit = data.unit !== undefined ? data.unit : existing.unit;
+
+    await db.runAsync(
+      `UPDATE goals SET title = ?, due_date = ?, category = ?, target_value = ?, unit = ?, updated_at = ? WHERE id = ?`,
+      [title, dueDate, category, targetValue, unit, now, goalId]
+    );
+
+    return db.getFirstAsync<Goal>('SELECT * FROM goals WHERE id = ?', [goalId]);
+  }
+
+  static deleteGoal(goalId: string): boolean {
+    const db = getDatabase();
+    db.withTransactionSync(() => {
+      db.runSync('DELETE FROM goal_milestones WHERE goal_id = ?', [goalId]);
+      db.runSync('DELETE FROM goals WHERE id = ?', [goalId]);
+    });
+    return true;
+  }
+
+  static async deleteGoalAsync(goalId: string): Promise<boolean> {
+    const db = await getDatabaseAsync();
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('DELETE FROM goal_milestones WHERE goal_id = ?', [goalId]);
+      await db.runAsync('DELETE FROM goals WHERE id = ?', [goalId]);
+    });
+    return true;
+  }
+
+  static getActiveGoal(): Goal | null {
+    const goals = this.getAllWithProgress(0);
+    return goals.length > 0 ? goals[0] : null;
+  }
+
+  static async getActiveGoalAsync(): Promise<Goal | null> {
+    const goals = await this.getAllWithProgressAsync(0);
+    return goals.length > 0 ? goals[0] : null;
+  }
 }
 
