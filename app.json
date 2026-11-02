@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "GrowPro",
+    "slug": "growpro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "growpro",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F4D2E"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0F4D2E"
+        }
+      ],
+      "expo-sqlite",
+      "expo-sharing",
+      "expo-document-picker",
+      "expo-local-authentication"
+    ]
+  }
+}

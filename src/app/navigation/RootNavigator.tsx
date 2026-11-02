@@ -1,0 +1,65 @@
+import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SplashScreen } from '../../features/splash/SplashScreen';
+import { OnboardingScreen } from '../../features/onboarding/OnboardingScreen';
+import { LockScreen } from '../../features/settings/LockScreen';
+import { DrawerNavigator } from './DrawerNavigator';
+import { TasksScreen } from '../../features/tasks/screens/TasksScreen';
+import { FocusTimerScreen } from '../../features/focus-timer/screens/FocusTimerScreen';
+import { AppLockSettingsScreen } from '../../features/settings/screens/AppLockSettingsScreen';
+import { DataBackupScreen } from '../../features/settings/screens/DataBackupScreen';
+import { WeeklyReviewScreen } from '../../features/weekly-review/screens/WeeklyReviewScreen';
+import { SkillsScreen } from '../../features/skills/screens/SkillsScreen';
+
+import { RootStackParamList } from './types';
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+export const RootNavigator: React.FC = () => {
+  return (
+    <Stack.Navigator
+      initialRouteName="Splash"
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade',
+      }}
+    >
+      <Stack.Screen name="Splash" component={SplashScreen} />
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+      <Stack.Screen name="LockScreen" component={LockScreen} />
+      <Stack.Screen name="MainApp" component={DrawerNavigator} />
+
+      {/* Detail / Fullscreen routes */}
+      <Stack.Screen
+        name="Tasks"
+        component={TasksScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="FocusTimerScreen"
+        component={FocusTimerScreen}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="AppLockSettingsScreen"
+        component={AppLockSettingsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="DataBackupScreen"
+        component={DataBackupScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="WeeklyReviewScreen"
+        component={WeeklyReviewScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="SkillsScreen"
+        component={SkillsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+    </Stack.Navigator>
+  );
+};
