@@ -153,9 +153,6 @@ export const IdeasScreen: React.FC = () => {
           </TouchableOpacity>
           <View style={{ marginLeft: 12 }}>
             <Text style={[styles.title, typography.h1, { color: colors.textPrimary }]}>Ideas</Text>
-            <Text style={[typography.caption, { color: colors.textSecondary }]}>
-              brainstorm & create
-            </Text>
           </View>
         </View>
 

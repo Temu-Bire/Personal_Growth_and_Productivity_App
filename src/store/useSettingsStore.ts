@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 import { DEFAULT_SETTINGS } from '../constants/defaults';
+import { getDatabase } from '../db/client';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -166,6 +167,31 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       updates.profileFocus = focus;
     }
     set(updates);
+
+    try {
+      const db = getDatabase();
+      const existing = db.getFirstSync<{ id: string }>('SELECT id FROM profile LIMIT 1;');
+      const now = new Date().toISOString();
+      if (existing) {
+        db.runSync(
+          `UPDATE profile SET 
+            name = COALESCE(?, name), 
+            avatar_uri = COALESCE(?, avatar_uri), 
+            main_focus = COALESCE(?, main_focus), 
+            updated_at = ? 
+           WHERE id = ?;`,
+          [name ?? null, avatar ?? null, focus ?? null, now, existing.id]
+        );
+      } else {
+        db.runSync(
+          `INSERT INTO profile (id, name, avatar_uri, main_focus, created_at, updated_at) 
+           VALUES (?, ?, ?, ?, ?, ?);`,
+          ['user_default', name || 'Temesgen', avatar ?? null, focus || 'Study', now, now]
+        );
+      }
+    } catch {
+      // safe fallback if db isn't open yet or in test
+    }
   },
 
   setAppLock: async (settings) => {
