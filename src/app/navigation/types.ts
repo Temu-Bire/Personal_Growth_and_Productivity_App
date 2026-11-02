@@ -11,6 +11,8 @@ export type DrawerParamList = {
   Tabs: NavigatorScreenParams<TabParamList>;
   DashboardScreen: undefined;
   GoalsScreen: undefined;
+  TasksScreen: { openAdd?: boolean } | undefined;
+  IdeasScreen: undefined;
   HabitsScreen: undefined;
   StudyScreen: undefined;
   ProjectsScreen: undefined;
@@ -27,6 +29,7 @@ export type RootStackParamList = {
   MainApp: NavigatorScreenParams<DrawerParamList> | undefined;
   LockScreen: undefined;
   Tasks: { openAdd?: boolean } | undefined;
+  Ideas: undefined;
   FocusTimerScreen: undefined;
   AppLockSettingsScreen: undefined;
   DataBackupScreen: undefined;

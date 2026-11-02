@@ -3,6 +3,8 @@ import { createDrawerNavigator } from '@react-navigation/drawer';
 import { TabNavigator } from './TabNavigator';
 import { DrawerContent } from '../../components/layout/DrawerContent';
 import { GoalsScreen } from '../../features/goals/screens/GoalsScreen';
+import { TasksScreen } from '../../features/tasks/screens/TasksScreen';
+import { IdeasScreen } from '../../features/ideas/screens/IdeasScreen';
 import { HabitsScreen } from '../../features/habits/screens/HabitsScreen';
 import { StudyScreen } from '../../features/study/screens/StudyScreen';
 import { ProjectsScreen } from '../../features/projects/screens/ProjectsScreen';
@@ -30,6 +32,8 @@ export const DrawerNavigator: React.FC = () => {
     >
       <Drawer.Screen name="DashboardScreen" component={TabNavigator} />
       <Drawer.Screen name="GoalsScreen" component={GoalsScreen} />
+      <Drawer.Screen name="TasksScreen" component={TasksScreen} />
+      <Drawer.Screen name="IdeasScreen" component={IdeasScreen} />
       <Drawer.Screen name="HabitsScreen" component={HabitsScreen} />
       <Drawer.Screen name="StudyScreen" component={StudyScreen} />
       <Drawer.Screen name="ProjectsScreen" component={ProjectsScreen} />

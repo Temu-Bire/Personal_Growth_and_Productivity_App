@@ -27,6 +27,7 @@ export class BackupService {
       skills,
       skill_logs,
       weekly_reviews,
+      ideas,
     ] = await Promise.all([
       db.getAllAsync('SELECT * FROM profile;'),
       db.getAllAsync('SELECT * FROM tasks WHERE deleted_at IS NULL;'),

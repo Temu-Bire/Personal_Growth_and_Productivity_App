@@ -254,6 +254,38 @@ export class StudyRepository {
   }
 
   // Study Schedule Session CRUD
+  static getScheduleSessions(dayOfWeek?: number): StudyScheduleSession[] {
+    const db = getDatabase();
+    let query = `
+      SELECT ss.*, s.name as subject_name, s.color as subject_color
+      FROM study_sessions ss
+      LEFT JOIN subjects s ON ss.subject_id = s.id
+    `;
+    const params: (string | number)[] = [];
+    if (dayOfWeek !== undefined) {
+      query += ' WHERE ss.day_of_week = ?';
+      params.push(dayOfWeek);
+    }
+    query += ' ORDER BY ss.start_time ASC;';
+    return db.getAllSync<StudyScheduleSession>(query, params);
+  }
+
+  static addScheduleSession(session: {
+    subjectId: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+  }): StudyScheduleSession {
+    const db = getDatabase();
+    const id = generateId('ssess');
+    const now = new Date().toISOString();
+    db.runSync(
+      'INSERT INTO study_sessions (id, subject_id, day_of_week, start_time, end_time, created_at) VALUES (?, ?, ?, ?, ?, ?);',
+      [id, session.subjectId, session.dayOfWeek, session.startTime, session.endTime, now]
+    );
+    return db.getFirstSync<StudyScheduleSession>('SELECT * FROM study_sessions WHERE id = ?;', [id])!;
+  }
+
   static updateSession(
     sessionId: string,
     data: { startTime?: string; endTime?: string; dayOfWeek?: number }

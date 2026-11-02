@@ -6,7 +6,7 @@ export class IdeasRepository {
   static getAll(search?: string, tag?: string): Idea[] {
     const db = getDatabase();
     let query = 'SELECT * FROM ideas WHERE 1=1';
-    const params: unknown[] = [];
+    const params: (string | number)[] = [];
 
     if (search && search.trim()) {
       query += ' AND (title LIKE ? OR description LIKE ?)';
@@ -25,7 +25,7 @@ export class IdeasRepository {
   static async getAllAsync(search?: string, tag?: string): Promise<Idea[]> {
     const db = await getDatabaseAsync();
     let query = 'SELECT * FROM ideas WHERE 1=1';
-    const params: unknown[] = [];
+    const params: (string | number)[] = [];
 
     if (search && search.trim()) {
       query += ' AND (title LIKE ? OR description LIKE ?)';

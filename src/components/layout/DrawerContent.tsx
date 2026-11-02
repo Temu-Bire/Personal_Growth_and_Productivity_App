@@ -22,6 +22,8 @@ interface MenuItem {
 const MENU_ITEMS: MenuItem[] = [
   { name: 'DashboardScreen', label: 'Dashboard', icon: 'grid-outline' },
   { name: 'GoalsScreen', label: 'My Goals', icon: 'flag-outline' },
+  { name: 'TasksScreen', label: 'Tasks & Schedule', icon: 'calendar-outline' },
+  { name: 'IdeasScreen', label: 'Ideas', icon: 'bulb-outline' },
   { name: 'HabitsScreen', label: 'Habits', icon: 'flash-outline' },
   { name: 'StudyScreen', label: 'Study Planner', icon: 'school-outline' },
   { name: 'ProjectsScreen', label: 'Projects', icon: 'folder-open-outline' },
