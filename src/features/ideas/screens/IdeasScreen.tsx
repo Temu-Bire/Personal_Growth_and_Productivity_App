@@ -159,16 +159,15 @@ export const IdeasScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Top button changed to 'New' */}
+        {/* Top button with only + icon like other screens */}
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={handleOpenAdd}
-          style={[styles.addBtn, { backgroundColor: colors.primary }]}
+          style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
           accessibilityRole="button"
-          accessibilityLabel="New Idea"
+          accessibilityLabel="Add Idea"
         >
-          <Ionicons name="add" size={22} color="#FFFFFF" />
-          <Text style={[typography.button, { color: '#FFFFFF', marginLeft: 4 }]}>New</Text>
+          <Ionicons name="add" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -528,11 +527,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    flexDirection: 'row',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    justifyContent: 'center',
   },
   searchAndFilterRow: {
     flexDirection: 'row',

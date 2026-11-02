@@ -101,17 +101,35 @@ export const TasksScreen: React.FC = () => {
         {/* Top Navigation Bar with Back Button */}
         <View style={styles.topNav}>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                (navigation as any).openDrawer?.();
+              }
+            }}
             style={styles.backBtn}
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
-            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            <Ionicons
+              name={navigation.canGoBack() ? 'arrow-back' : 'menu-outline'}
+              size={24}
+              color={colors.textPrimary}
+            />
           </TouchableOpacity>
           <Text style={[styles.topTitle, typography.h2, { color: colors.textPrimary }]}>
             Tasks & Schedule
           </Text>
-          <View style={{ width: 40 }} />
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setIsAddModalOpen(true)}
+            style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
+            accessibilityRole="button"
+            accessibilityLabel="Add Task"
+          >
+            <Ionicons name="add" size={24} color={colors.primary} />
+          </TouchableOpacity>
         </View>
 
         {/* Date Selector Header */}
@@ -248,20 +266,9 @@ export const TasksScreen: React.FC = () => {
                 </Card>
               </View>
             ))}
-            <View style={{ height: 80 }} />
+            <View style={{ height: 24 }} />
           </ScrollView>
         )}
-
-        {/* Bottom Add Task Button */}
-        <View style={[styles.bottomBar, { bottom: Math.max(insets.bottom, 16) }]}>
-          <Button
-            title="+ Add Task"
-            onPress={() => setIsAddModalOpen(true)}
-            variant="primary"
-            size="lg"
-            style={styles.shadowBtn}
-          />
-        </View>
 
         {/* Add Task Sheet Modal */}
         <BottomSheetModal
@@ -390,6 +397,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  addBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   topTitle: {
     fontWeight: '700',
   },
@@ -413,7 +427,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollListPadding: {
-    paddingBottom: 110,
+    paddingBottom: 32,
   },
   taskCard: {
     paddingVertical: 14,

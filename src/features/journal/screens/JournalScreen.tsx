@@ -189,12 +189,11 @@ export const JournalScreen: React.FC = () => {
           </View>
           <TouchableOpacity
             onPress={() => setIsComposeOpen(true)}
-            style={[styles.addBtn, { backgroundColor: colors.primary }]}
+            style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
             accessibilityRole="button"
             accessibilityLabel="New Reflection"
           >
-            <Ionicons name="create-outline" size={20} color="#FFFFFF" />
-            <Text style={[typography.button, { color: '#FFFFFF', marginLeft: 4 }]}>Write</Text>
+            <Ionicons name="add" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -509,11 +508,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    flexDirection: 'row',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
+    justifyContent: 'center',
   },
   list: {
     flex: 1,
