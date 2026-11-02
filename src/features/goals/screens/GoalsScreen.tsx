@@ -30,11 +30,19 @@ export const GoalsScreen: React.FC = () => {
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
   const [milestonesMap, setMilestonesMap] = useState<Record<string, GoalMilestone[]>>({});
 
+  // Add Modal State
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('2026-12-31');
   const [category, setCategory] = useState('General');
   const [initialMilestones, setInitialMilestones] = useState('');
+
+  // Edit Modal State
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editCategory, setEditCategory] = useState('');
 
   const loadGoals = useCallback(() => {
     const list = GoalsRepository.getAllWithProgress(activeTab === 'completed' ? 1 : 0);
@@ -82,6 +90,54 @@ export const GoalsScreen: React.FC = () => {
     loadGoals();
   };
 
+  const handleOpenEdit = (goal: Goal) => {
+    setEditingGoal(goal);
+    setEditTitle(goal.title);
+    setEditDueDate(goal.due_date);
+    setEditCategory(goal.category || 'General');
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingGoal || !editTitle.trim()) {
+      Alert.alert('Required', 'Please enter a goal title.');
+      return;
+    }
+
+    GoalsRepository.updateGoal(editingGoal.id, {
+      title: editTitle,
+      dueDate: editDueDate,
+      category: editCategory,
+    });
+
+    setIsEditOpen(false);
+    setEditingGoal(null);
+    loadGoals();
+  };
+
+  const handleDeleteGoal = (goal: Goal) => {
+    Alert.alert(
+      'Delete Goal',
+      `Are you sure you want to delete "${goal.title}" and its milestones? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            GoalsRepository.deleteGoal(goal.id);
+            loadGoals();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleMarkComplete = (goalId: string) => {
+    GoalsRepository.markComplete(goalId);
+    loadGoals();
+  };
+
   const toggleExpand = (goalId: string) => {
     setExpandedGoalId(expandedGoalId === goalId ? null : goalId);
   };
@@ -115,14 +171,15 @@ export const GoalsScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Tabs: Active vs Completed */}
+        {/* Active vs Completed Tabs */}
         <SegmentedTabs
           tabs={[
             { key: 'active', label: 'Active' },
             { key: 'completed', label: 'Completed' },
           ]}
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={(tab) => setActiveTab(tab)}
+          style={{ marginBottom: 16 }}
         />
 
         {/* Goals List */}
@@ -134,9 +191,13 @@ export const GoalsScreen: React.FC = () => {
           {goals.length === 0 ? (
             <EmptyState
               icon="flag-outline"
-              title={activeTab === 'active' ? 'No active goals' : 'No completed goals yet'}
-              description="Define long-term aspirations and break them down into milestones."
-              actionTitle={activeTab === 'active' ? '+ Add Goal' : undefined}
+              title={activeTab === 'active' ? 'No active goals' : 'No completed goals'}
+              description={
+                activeTab === 'active'
+                  ? 'Set meaningful milestones and reach your ambitions.'
+                  : 'Completed goals will appear here once marked done.'
+              }
+              actionTitle={activeTab === 'active' ? '+ Add New Goal' : undefined}
               onAction={activeTab === 'active' ? () => setIsAddOpen(true) : undefined}
             />
           ) : (
@@ -156,7 +217,7 @@ export const GoalsScreen: React.FC = () => {
                           {goal.title}
                         </Text>
                         <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
-                          Due: {goal.due_date}
+                          Due: {goal.due_date} · {goal.category || 'General'}
                         </Text>
                       </View>
                       <Text style={[typography.h2, { color: colors.primary, fontWeight: '800' }]}>
@@ -175,11 +236,33 @@ export const GoalsScreen: React.FC = () => {
                       <Text style={[typography.caption, { color: colors.textMuted }]}>
                         {goal.completedMilestonesCount} of {goal.milestonesCount} milestones completed
                       </Text>
-                      <Ionicons
-                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                        size={18}
-                        color={colors.textMuted}
-                      />
+                      <View style={styles.headerActions}>
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleOpenEdit(goal);
+                          }}
+                          style={styles.actionIconBtn}
+                          accessibilityLabel="Edit Goal"
+                        >
+                          <Ionicons name="pencil-outline" size={17} color={colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeleteGoal(goal);
+                          }}
+                          style={styles.actionIconBtn}
+                          accessibilityLabel="Delete Goal"
+                        >
+                          <Ionicons name="trash-outline" size={17} color={colors.danger} />
+                        </TouchableOpacity>
+                        <Ionicons
+                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={18}
+                          color={colors.textMuted}
+                        />
+                      </View>
                     </View>
                   </TouchableOpacity>
 
@@ -213,6 +296,16 @@ export const GoalsScreen: React.FC = () => {
                           </View>
                         ))
                       )}
+
+                      {activeTab === 'active' && (
+                        <View style={{ marginTop: 12 }}>
+                          <Button
+                            title="Mark Goal as Completed ✓"
+                            variant="secondary"
+                            onPress={() => handleMarkComplete(goal.id)}
+                          />
+                        </View>
+                      )}
                     </View>
                   )}
                 </Card>
@@ -230,7 +323,7 @@ export const GoalsScreen: React.FC = () => {
         >
           <View style={styles.modalForm}>
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Goal Title
+              Goal Title *
             </Text>
             <TextInput
               value={title}
@@ -249,7 +342,7 @@ export const GoalsScreen: React.FC = () => {
             <TextInput
               value={dueDate}
               onChangeText={setDueDate}
-              placeholder="2027-08-30"
+              placeholder="2026-12-31"
               placeholderTextColor={colors.textMuted}
               style={[
                 styles.modalInput,
@@ -258,29 +351,101 @@ export const GoalsScreen: React.FC = () => {
             />
 
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Key Milestones (one per line)
+              Category
+            </Text>
+            <TextInput
+              value={category}
+              onChangeText={setCategory}
+              placeholder="General, Career, Health"
+              placeholderTextColor={colors.textMuted}
+              style={[
+                styles.modalInput,
+                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+            />
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Milestones (one per line)
             </Text>
             <TextInput
               value={initialMilestones}
               onChangeText={setInitialMilestones}
-              placeholder={'Complete foundational math\nRead papers & tutorials\nBuild 2 end-to-end models'}
-              placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={4}
+              placeholder="Finish online course&#10;Build 2 projects&#10;Publish case study"
+              placeholderTextColor={colors.textMuted}
               style={[
                 styles.modalInput,
-                styles.multilineInput,
+                styles.textArea,
                 { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
               ]}
             />
 
             <Button
-              title="Save Goal"
+              title="Create Goal"
               onPress={handleCreateGoal}
-              variant="primary"
-              size="lg"
-              style={{ marginTop: 20 }}
+              style={{ marginTop: 16 }}
             />
+          </View>
+        </BottomSheetModal>
+
+        {/* Edit Goal Modal */}
+        <BottomSheetModal
+          visible={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          title="Edit Goal"
+        >
+          <View style={styles.modalForm}>
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Goal Title *
+            </Text>
+            <TextInput
+              value={editTitle}
+              onChangeText={setEditTitle}
+              style={[
+                styles.modalInput,
+                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+            />
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Target Date (YYYY-MM-DD)
+            </Text>
+            <TextInput
+              value={editDueDate}
+              onChangeText={setEditDueDate}
+              style={[
+                styles.modalInput,
+                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+            />
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Category
+            </Text>
+            <TextInput
+              value={editCategory}
+              onChangeText={setEditCategory}
+              style={[
+                styles.modalInput,
+                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+            />
+
+            <View style={{ flexDirection: 'row', marginTop: 16, gap: 10 }}>
+              <Button
+                title="Cancel"
+                variant="ghost"
+                onPress={() => setIsEditOpen(false)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Save Changes"
+                variant="primary"
+                onPress={handleSaveEdit}
+                style={{ flex: 2 }}
+              />
+            </View>
           </View>
         </BottomSheetModal>
       </View>
@@ -291,23 +456,23 @@ export const GoalsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    marginBottom: 16,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
   menuBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -316,9 +481,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -326,11 +491,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollListPadding: {
-    paddingBottom: 60,
+    paddingBottom: 110,
   },
   goalCard: {
-    padding: 16,
     marginBottom: 12,
+    padding: 16,
   },
   goalHeader: {
     flexDirection: 'row',
@@ -345,10 +510,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionIconBtn: {
+    padding: 4,
+  },
   milestonesList: {
     borderTopWidth: 1,
+    paddingTop: 12,
     marginTop: 12,
-    paddingTop: 10,
   },
   milestoneItem: {
     flexDirection: 'row',
@@ -356,25 +529,27 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   milestoneTitle: {
-    marginLeft: 8,
+    marginLeft: 10,
     flex: 1,
   },
   modalForm: {
-    paddingTop: 8,
+    paddingBottom: 24,
   },
   formLabel: {
     marginBottom: 6,
-    marginTop: 12,
+    letterSpacing: 0.5,
   },
   modalInput: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
+    height: 48,
     borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    marginBottom: 14,
   },
-  multilineInput: {
-    minHeight: 100,
+  textArea: {
+    height: 100,
     textAlignVertical: 'top',
+    paddingTop: 10,
   },
 });
-

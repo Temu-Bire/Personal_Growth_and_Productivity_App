@@ -19,7 +19,7 @@ import { Button } from '../../../components/ui/Button';
 import { Checkbox } from '../../../components/ui/Checkbox';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useTheme } from '../../../hooks/useTheme';
-import { StudyRepository, Subject, StudyTopic } from '../study.repository';
+import { StudyRepository, Subject, StudyTopic, StudyScheduleSession } from '../study.repository';
 
 export const StudyScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -27,34 +27,54 @@ export const StudyScreen: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'subjects' | 'schedule'>('subjects');
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [scheduleSessions, setScheduleSessions] = useState<StudyScheduleSession[]>([]);
   const [expandedSubjId, setExpandedSubjId] = useState<string | null>(null);
   const [topicsMap, setTopicsMap] = useState<Record<string, StudyTopic[]>>({});
 
+  // Add Subject Modal
   const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
   const [newSubjName, setNewSubjName] = useState('');
   const [newSubjTopics, setNewSubjTopics] = useState('');
 
-  const loadSubjects = useCallback(() => {
+  // Edit Subject Modal
+  const [isEditSubjectOpen, setIsEditSubjectOpen] = useState(false);
+  const [editingSubj, setEditingSubj] = useState<Subject | null>(null);
+  const [editSubjName, setEditSubjName] = useState('');
+
+  // Add Topic inline
+  const [addingTopicForSubjId, setAddingTopicForSubjId] = useState<string | null>(null);
+  const [newTopicTitle, setNewTopicTitle] = useState('');
+
+  // Add Schedule Session Modal
+  const [isAddSessionOpen, setIsAddSessionOpen] = useState(false);
+  const [selectedSubjIdForSession, setSelectedSubjIdForSession] = useState('');
+  const [sessionDayOfWeek, setSessionDayOfWeek] = useState(1);
+  const [sessionStartTime, setSessionStartTime] = useState('09:00 AM');
+  const [sessionEndTime, setSessionEndTime] = useState('10:30 AM');
+
+  const loadData = useCallback(() => {
     const list = StudyRepository.getSubjectsWithProgress();
     setSubjects(list);
 
-    // Load topics for each subject
     const map: Record<string, StudyTopic[]> = {};
     list.forEach((s) => {
       map[s.id] = StudyRepository.getTopics(s.id);
     });
     setTopicsMap(map);
+
+    const sessions = StudyRepository.getScheduleSessions();
+    setScheduleSessions(sessions);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadSubjects();
-    }, [loadSubjects])
+      loadData();
+    }, [loadData])
   );
 
   const handleToggleTopic = (topicId: string) => {
     StudyRepository.toggleTopic(topicId);
-    loadSubjects();
+    loadData();
   };
 
   const handleCreateSubject = () => {
@@ -73,12 +93,98 @@ export const StudyScreen: React.FC = () => {
     setNewSubjName('');
     setNewSubjTopics('');
     setIsAddSubjectOpen(false);
-    loadSubjects();
+    loadData();
+  };
+
+  const handleOpenEditSubject = (subj: Subject) => {
+    setEditingSubj(subj);
+    setEditSubjName(subj.name);
+    setIsEditSubjectOpen(true);
+  };
+
+  const handleSaveEditSubject = () => {
+    if (!editingSubj || !editSubjName.trim()) {
+      Alert.alert('Required', 'Please enter subject name.');
+      return;
+    }
+
+    StudyRepository.updateSubject(editingSubj.id, editSubjName.trim());
+    setIsEditSubjectOpen(false);
+    setEditingSubj(null);
+    loadData();
+  };
+
+  const handleDeleteSubject = (subj: Subject) => {
+    Alert.alert(
+      'Delete Subject',
+      `Are you sure you want to delete "${subj.name}" and all its topics and study sessions? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            StudyRepository.deleteSubject(subj.id);
+            loadData();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAddTopic = (subjectId: string) => {
+    if (!newTopicTitle.trim()) return;
+    StudyRepository.addTopic(subjectId, newTopicTitle.trim());
+    setNewTopicTitle('');
+    setAddingTopicForSubjId(null);
+    loadData();
+  };
+
+  const handleDeleteTopic = (topicId: string) => {
+    StudyRepository.deleteTopic(topicId);
+    loadData();
+  };
+
+  const handleCreateSession = () => {
+    if (!selectedSubjIdForSession && subjects.length > 0) {
+      setSelectedSubjIdForSession(subjects[0].id);
+    }
+    const subjId = selectedSubjIdForSession || (subjects.length > 0 ? subjects[0].id : '');
+    if (!subjId) {
+      Alert.alert('Required', 'Please create a subject first.');
+      return;
+    }
+
+    StudyRepository.addScheduleSession({
+      subjectId: subjId,
+      dayOfWeek: sessionDayOfWeek,
+      startTime: sessionStartTime,
+      endTime: sessionEndTime,
+    });
+
+    setIsAddSessionOpen(false);
+    loadData();
+  };
+
+  const handleDeleteSession = (sessionId: string) => {
+    Alert.alert('Delete Session', 'Are you sure you want to delete this study session?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          StudyRepository.deleteSession(sessionId);
+          loadData();
+        },
+      },
+    ]);
   };
 
   const toggleExpand = (subjId: string) => {
     setExpandedSubjId(expandedSubjId === subjId ? null : subjId);
   };
+
+  const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   return (
     <Screen backgroundColor={colors.background}>
@@ -100,26 +206,28 @@ export const StudyScreen: React.FC = () => {
             </Text>
           </View>
           <TouchableOpacity
-            onPress={() => setIsAddSubjectOpen(true)}
+            onPress={() => (activeTab === 'subjects' ? setIsAddSubjectOpen(true) : setIsAddSessionOpen(true))}
             style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
             accessibilityRole="button"
-            accessibilityLabel="Add Subject"
+            accessibilityLabel="Add"
           >
             <Ionicons name="add" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
-        {/* Tabs: Subjects vs Schedule */}
+        {/* Tab Switcher */}
         <SegmentedTabs
           tabs={[
             { key: 'subjects', label: 'Subjects' },
             { key: 'schedule', label: 'Schedule' },
           ]}
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={(tab) => setActiveTab(tab)}
+          style={{ marginBottom: 16 }}
         />
 
         {activeTab === 'subjects' ? (
+          /* Subjects Tab */
           <ScrollView
             style={styles.list}
             contentContainerStyle={styles.scrollListPadding}
@@ -128,8 +236,8 @@ export const StudyScreen: React.FC = () => {
             {subjects.length === 0 ? (
               <EmptyState
                 icon="school-outline"
-                title="No subjects added"
-                description="Create subjects and chapters to systematically master your coursework."
+                title="No subjects yet"
+                description="Organize your courses and study materials into chapters."
                 actionTitle="+ Add Subject"
                 onAction={() => setIsAddSubjectOpen(true)}
               />
@@ -145,7 +253,7 @@ export const StudyScreen: React.FC = () => {
                       onPress={() => toggleExpand(subj.id)}
                     >
                       <View style={styles.subjectHeader}>
-                        <View style={styles.subjectLeft}>
+                        <View style={styles.subjectTitleRow}>
                           <View
                             style={[
                               styles.colorIndicator,
@@ -172,43 +280,104 @@ export const StudyScreen: React.FC = () => {
                         <Text style={[typography.caption, { color: colors.textMuted }]}>
                           {subj.completedTopicsCount} of {subj.topicsCount} topics completed
                         </Text>
-                        <Ionicons
-                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                          size={18}
-                          color={colors.textMuted}
-                        />
+                        <View style={styles.headerActions}>
+                          <TouchableOpacity
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleOpenEditSubject(subj);
+                            }}
+                            style={styles.actionIconBtn}
+                            accessibilityLabel="Edit Subject"
+                          >
+                            <Ionicons name="pencil-outline" size={17} color={colors.primary} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSubject(subj);
+                            }}
+                            style={styles.actionIconBtn}
+                            accessibilityLabel="Delete Subject"
+                          >
+                            <Ionicons name="trash-outline" size={17} color={colors.danger} />
+                          </TouchableOpacity>
+                          <Ionicons
+                            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={18}
+                            color={colors.textMuted}
+                          />
+                        </View>
                       </View>
                     </TouchableOpacity>
 
                     {/* Topics Accordion List */}
                     {isExpanded && (
                       <View style={[styles.topicsList, { borderTopColor: colors.border }]}>
-                        {topics.length === 0 ? (
-                          <Text style={[typography.caption, { color: colors.textMuted, marginVertical: 6 }]}>
-                            No topics added yet.
-                          </Text>
+                        {topics.map((t) => (
+                          <View key={t.id} style={styles.topicRow}>
+                            <Checkbox
+                              checked={t.is_completed === 1}
+                              onToggle={() => handleToggleTopic(t.id)}
+                              size={20}
+                            />
+                            <Text
+                              style={[
+                                styles.topicTitle,
+                                typography.body,
+                                {
+                                  color: t.is_completed === 1 ? colors.textMuted : colors.textPrimary,
+                                  textDecorationLine: t.is_completed === 1 ? 'line-through' : 'none',
+                                },
+                              ]}
+                            >
+                              {t.title}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => handleDeleteTopic(t.id)}
+                              style={{ padding: 4 }}
+                            >
+                              <Ionicons name="close-circle-outline" size={16} color={colors.textMuted} />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+
+                        {/* Add Topic inline */}
+                        {addingTopicForSubjId === subj.id ? (
+                          <View style={styles.addTopicRow}>
+                            <TextInput
+                              value={newTopicTitle}
+                              onChangeText={setNewTopicTitle}
+                              placeholder="Chapter or topic title..."
+                              placeholderTextColor={colors.textMuted}
+                              style={[
+                                styles.topicInput,
+                                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+                              ]}
+                              autoFocus
+                            />
+                            <TouchableOpacity
+                              onPress={() => handleAddTopic(subj.id)}
+                              style={[styles.topicAddBtn, { backgroundColor: colors.primary }]}
+                            >
+                              <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => setAddingTopicForSubjId(null)}
+                              style={{ padding: 6 }}
+                            >
+                              <Ionicons name="close" size={18} color={colors.textMuted} />
+                            </TouchableOpacity>
+                          </View>
                         ) : (
-                          topics.map((t) => (
-                            <View key={t.id} style={styles.topicRow}>
-                              <Checkbox
-                                checked={t.is_completed === 1}
-                                onToggle={() => handleToggleTopic(t.id)}
-                                size={20}
-                              />
-                              <Text
-                                style={[
-                                  styles.topicTitle,
-                                  typography.body,
-                                  {
-                                    color: t.is_completed === 1 ? colors.textMuted : colors.textPrimary,
-                                    textDecorationLine: t.is_completed === 1 ? 'line-through' : 'none',
-                                  },
-                                ]}
-                              >
-                                {t.title}
-                              </Text>
-                            </View>
-                          ))
+                          <TouchableOpacity
+                            onPress={() => setAddingTopicForSubjId(subj.id)}
+                            style={styles.addTopicTrigger}
+                          >
+                            <Ionicons name="add" size={16} color={colors.primary} />
+                            <Text style={[typography.captionBold, { color: colors.primary, marginLeft: 4 }]}>
+                              Add Topic / Chapter
+                            </Text>
+                          </TouchableOpacity>
                         )}
                       </View>
                     )}
@@ -225,49 +394,60 @@ export const StudyScreen: React.FC = () => {
             contentContainerStyle={styles.scrollListPadding}
             showsVerticalScrollIndicator={false}
           >
-            {[
-              { day: 'Monday', time: '9:00 AM - 10:30 AM', subj: 'Mathematics', loc: 'Room 204' },
-              { day: 'Monday', time: '11:00 AM - 12:30 PM', subj: 'Physics', loc: 'Lab A' },
-              { day: 'Wednesday', time: '2:00 PM - 3:30 PM', subj: 'ICT & Networks', loc: 'Comp Lab' },
-              { day: 'Thursday', time: '10:00 AM - 11:30 AM', subj: 'English Writing', loc: 'Hall 3' },
-              { day: 'Friday', time: '3:00 PM - 5:00 PM', subj: 'Mathematics Revision', loc: 'Library' },
-            ].map((sess, i) => (
-              <Card key={i} style={styles.scheduleCard}>
-                <View style={styles.scheduleRow}>
-                  <View style={[styles.dayBadge, { backgroundColor: colors.accentMint }]}>
-                    <Text style={[typography.captionBold, { color: colors.primary }]}>
-                      {sess.day.substring(0, 3)}
-                    </Text>
+            {scheduleSessions.length === 0 ? (
+              <EmptyState
+                icon="calendar-outline"
+                title="No study sessions scheduled"
+                description="Plan your weekly study schedule to stay consistent."
+                actionTitle="+ Add Study Session"
+                onAction={() => setIsAddSessionOpen(true)}
+              />
+            ) : (
+              scheduleSessions.map((sess) => (
+                <Card key={sess.id} style={styles.scheduleCard}>
+                  <View style={styles.scheduleRow}>
+                    <View style={[styles.dayBadge, { backgroundColor: colors.accentMint }]}>
+                      <Text style={[typography.captionBold, { color: colors.primary }]}>
+                        {DAY_NAMES[sess.day_of_week % 7].substring(0, 3)}
+                      </Text>
+                    </View>
+                    <View style={styles.sessDetails}>
+                      <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                        {sess.subject_name || 'Study Session'}
+                      </Text>
+                      <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                        {DAY_NAMES[sess.day_of_week % 7]} · {sess.start_time} - {sess.end_time}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteSession(sess.id)}
+                      style={{ padding: 6 }}
+                      accessibilityLabel="Delete Session"
+                    >
+                      <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                    </TouchableOpacity>
                   </View>
-                  <View style={styles.sessDetails}>
-                    <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                      {sess.subj}
-                    </Text>
-                    <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                      {sess.time} · {sess.loc}
-                    </Text>
-                  </View>
-                </View>
-              </Card>
-            ))}
+                </Card>
+              ))
+            )}
             <View style={{ height: 40 }} />
           </ScrollView>
         )}
 
-        {/* Add Subject Sheet Modal */}
+        {/* Add Subject Modal */}
         <BottomSheetModal
           visible={isAddSubjectOpen}
           onClose={() => setIsAddSubjectOpen(false)}
-          title="Add New Subject"
+          title="Create New Subject"
         >
           <View style={styles.modalForm}>
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Subject Name
+              Subject Name *
             </Text>
             <TextInput
               value={newSubjName}
               onChangeText={setNewSubjName}
-              placeholder="e.g. Algorithms & Data Structures"
+              placeholder="e.g. Mathematics, System Design"
               placeholderTextColor={colors.textMuted}
               style={[
                 styles.modalInput,
@@ -281,23 +461,153 @@ export const StudyScreen: React.FC = () => {
             <TextInput
               value={newSubjTopics}
               onChangeText={setNewSubjTopics}
-              placeholder={'Trees & Graphs\nSorting Algorithms\nDynamic Programming'}
-              placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={4}
+              placeholder="Linear Algebra&#10;Calculus Foundations&#10;Probability"
+              placeholderTextColor={colors.textMuted}
               style={[
                 styles.modalInput,
-                styles.multilineInput,
+                styles.textArea,
                 { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
               ]}
             />
 
             <Button
-              title="Save Subject"
+              title="Create Subject"
               onPress={handleCreateSubject}
-              variant="primary"
-              size="lg"
-              style={{ marginTop: 20 }}
+              style={{ marginTop: 16 }}
+            />
+          </View>
+        </BottomSheetModal>
+
+        {/* Edit Subject Modal */}
+        <BottomSheetModal
+          visible={isEditSubjectOpen}
+          onClose={() => setIsEditSubjectOpen(false)}
+          title="Edit Subject"
+        >
+          <View style={styles.modalForm}>
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Subject Name *
+            </Text>
+            <TextInput
+              value={editSubjName}
+              onChangeText={setEditSubjName}
+              style={[
+                styles.modalInput,
+                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+            />
+
+            <View style={{ flexDirection: 'row', marginTop: 16, gap: 10 }}>
+              <Button
+                title="Cancel"
+                variant="ghost"
+                onPress={() => setIsEditSubjectOpen(false)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Save Changes"
+                variant="primary"
+                onPress={handleSaveEditSubject}
+                style={{ flex: 2 }}
+              />
+            </View>
+          </View>
+        </BottomSheetModal>
+
+        {/* Add Session Modal */}
+        <BottomSheetModal
+          visible={isAddSessionOpen}
+          onClose={() => setIsAddSessionOpen(false)}
+          title="Add Study Session"
+        >
+          <View style={styles.modalForm}>
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Subject *
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              {subjects.map((s) => (
+                <TouchableOpacity
+                  key={s.id}
+                  onPress={() => setSelectedSubjIdForSession(s.id)}
+                  style={[
+                    styles.subjPill,
+                    selectedSubjIdForSession === s.id && { backgroundColor: colors.accentMint, borderColor: colors.primary },
+                    { borderColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.captionBold,
+                      { color: selectedSubjIdForSession === s.id ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    {s.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Day of Week
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              {DAY_NAMES.map((day, idx) => (
+                <TouchableOpacity
+                  key={day}
+                  onPress={() => setSessionDayOfWeek(idx)}
+                  style={[
+                    styles.subjPill,
+                    sessionDayOfWeek === idx && { backgroundColor: colors.accentMint, borderColor: colors.primary },
+                    { borderColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.captionBold,
+                      { color: sessionDayOfWeek === idx ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    {day.substring(0, 3)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+                  Start Time
+                </Text>
+                <TextInput
+                  value={sessionStartTime}
+                  onChangeText={setSessionStartTime}
+                  style={[
+                    styles.modalInput,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+                  ]}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+                  End Time
+                </Text>
+                <TextInput
+                  value={sessionEndTime}
+                  onChangeText={setSessionEndTime}
+                  style={[
+                    styles.modalInput,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <Button
+              title="Schedule Session"
+              onPress={handleCreateSession}
+              style={{ marginTop: 12 }}
             />
           </View>
         </BottomSheetModal>
@@ -309,23 +619,23 @@ export const StudyScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    marginBottom: 16,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
   menuBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -334,9 +644,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -344,18 +654,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollListPadding: {
-    paddingBottom: 60,
+    paddingBottom: 110,
   },
   subjectCard: {
-    padding: 16,
     marginBottom: 12,
+    padding: 16,
   },
   subjectHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  subjectLeft: {
+  subjectTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -363,7 +673,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    marginRight: 10,
+    marginRight: 8,
   },
   subjectName: {
     fontWeight: '700',
@@ -373,10 +683,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionIconBtn: {
+    padding: 4,
+  },
   topicsList: {
     borderTopWidth: 1,
-    marginTop: 12,
     paddingTop: 10,
+    marginTop: 10,
   },
   topicRow: {
     flexDirection: 'row',
@@ -384,44 +702,78 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   topicTitle: {
-    marginLeft: 8,
+    marginLeft: 10,
     flex: 1,
   },
+  addTopicRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  topicInput: {
+    flex: 1,
+    height: 38,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    fontSize: 14,
+  },
+  topicAddBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  addTopicTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    marginTop: 4,
+  },
   scheduleCard: {
-    padding: 14,
     marginBottom: 10,
+    padding: 14,
   },
   scheduleRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   dayBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     marginRight: 12,
   },
   sessDetails: {
     flex: 1,
   },
   modalForm: {
-    paddingTop: 8,
+    paddingBottom: 24,
   },
   formLabel: {
     marginBottom: 6,
-    marginTop: 12,
+    letterSpacing: 0.5,
   },
   modalInput: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
+    height: 48,
     borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    marginBottom: 14,
   },
-  multilineInput: {
-    minHeight: 100,
+  textArea: {
+    height: 90,
     textAlignVertical: 'top',
+    paddingTop: 10,
+  },
+  subjPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginRight: 8,
   },
 });
-

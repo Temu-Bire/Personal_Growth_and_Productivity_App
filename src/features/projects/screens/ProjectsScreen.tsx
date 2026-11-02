@@ -28,11 +28,23 @@ export const ProjectsScreen: React.FC = () => {
   const [expandedPrjId, setExpandedPrjId] = useState<string | null>(null);
   const [tasksMap, setTasksMap] = useState<Record<string, ProjectTask[]>>({});
 
+  // Add Project Modal
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('2026-12-15');
   const [color, setColor] = useState('#1E8E4E');
   const [initialTasks, setInitialTasks] = useState('');
+
+  // Edit Project Modal
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editStatus, setEditStatus] = useState<'planning' | 'in_progress' | 'completed' | 'on_hold'>('in_progress');
+
+  // New subtask state
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [addingTaskForPrjId, setAddingTaskForPrjId] = useState<string | null>(null);
 
   const loadProjects = useCallback(() => {
     const list = ProjectsRepository.getAllWithProgress();
@@ -77,6 +89,62 @@ export const ProjectsScreen: React.FC = () => {
     setTitle('');
     setInitialTasks('');
     setIsAddOpen(false);
+    loadProjects();
+  };
+
+  const handleOpenEdit = (project: Project) => {
+    setEditingProject(project);
+    setEditTitle(project.title);
+    setEditDueDate(project.due_date);
+    setEditStatus(project.status);
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingProject || !editTitle.trim()) {
+      Alert.alert('Required', 'Please enter project title.');
+      return;
+    }
+
+    ProjectsRepository.update(editingProject.id, {
+      title: editTitle.trim(),
+      dueDate: editDueDate,
+      status: editStatus,
+    });
+
+    setIsEditOpen(false);
+    setEditingProject(null);
+    loadProjects();
+  };
+
+  const handleDeleteProject = (project: Project) => {
+    Alert.alert(
+      'Delete Project',
+      `Are you sure you want to delete "${project.title}" and all its subtasks? This action cannot be reversed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            ProjectsRepository.delete(project.id);
+            loadProjects();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAddSubtask = (projectId: string) => {
+    if (!newSubtaskTitle.trim()) return;
+    ProjectsRepository.addProjectTask(projectId, newSubtaskTitle.trim());
+    setNewSubtaskTitle('');
+    setAddingTaskForPrjId(null);
+    loadProjects();
+  };
+
+  const handleDeleteSubtask = (taskId: string) => {
+    ProjectsRepository.deleteProjectTask(taskId);
     loadProjects();
   };
 
@@ -165,8 +233,8 @@ export const ProjectsScreen: React.FC = () => {
                             {
                               color:
                                 p.status === 'completed'
-                                  ? colors.primary
-                                  : colors.orange,
+                                ? colors.primary
+                                : colors.orange,
                             },
                           ]}
                         >
@@ -186,11 +254,33 @@ export const ProjectsScreen: React.FC = () => {
                       <Text style={[typography.caption, { color: colors.textMuted }]}>
                         {p.completedTasksCount} of {p.tasksCount} tasks completed
                       </Text>
-                      <Ionicons
-                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                        size={18}
-                        color={colors.textMuted}
-                      />
+                      <View style={styles.headerActions}>
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleOpenEdit(p);
+                          }}
+                          style={styles.actionIconBtn}
+                          accessibilityLabel="Edit Project"
+                        >
+                          <Ionicons name="pencil-outline" size={17} color={colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProject(p);
+                          }}
+                          style={styles.actionIconBtn}
+                          accessibilityLabel="Delete Project"
+                        >
+                          <Ionicons name="trash-outline" size={17} color={colors.danger} />
+                        </TouchableOpacity>
+                        <Ionicons
+                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={18}
+                          color={colors.textMuted}
+                        />
+                      </View>
                     </View>
                   </TouchableOpacity>
 
@@ -198,7 +288,7 @@ export const ProjectsScreen: React.FC = () => {
                   {isExpanded && (
                     <View style={[styles.tasksList, { borderTopColor: colors.border }]}>
                       {tasks.map((task) => (
-                        <View key={task.id} style={styles.taskItem}>
+                        <View key={task.id} style={styles.taskRow}>
                           <Checkbox
                             checked={task.is_completed === 1}
                             onToggle={() => handleToggleTask(task.id)}
@@ -216,8 +306,53 @@ export const ProjectsScreen: React.FC = () => {
                           >
                             {task.title}
                           </Text>
+                          <TouchableOpacity
+                            onPress={() => handleDeleteSubtask(task.id)}
+                            style={{ padding: 4 }}
+                          >
+                            <Ionicons name="close-circle-outline" size={16} color={colors.textMuted} />
+                          </TouchableOpacity>
                         </View>
                       ))}
+
+                      {/* Add subtask inline */}
+                      {addingTaskForPrjId === p.id ? (
+                        <View style={styles.addSubtaskRow}>
+                          <TextInput
+                            value={newSubtaskTitle}
+                            onChangeText={setNewSubtaskTitle}
+                            placeholder="New subtask title..."
+                            placeholderTextColor={colors.textMuted}
+                            style={[
+                              styles.subtaskInput,
+                              { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+                            ]}
+                            autoFocus
+                          />
+                          <TouchableOpacity
+                            onPress={() => handleAddSubtask(p.id)}
+                            style={[styles.subtaskAddBtn, { backgroundColor: colors.primary }]}
+                          >
+                            <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => setAddingTaskForPrjId(null)}
+                            style={{ padding: 6 }}
+                          >
+                            <Ionicons name="close" size={18} color={colors.textMuted} />
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => setAddingTaskForPrjId(p.id)}
+                          style={styles.addTaskTrigger}
+                        >
+                          <Ionicons name="add" size={16} color={colors.primary} />
+                          <Text style={[typography.captionBold, { color: colors.primary, marginLeft: 4 }]}>
+                            Add Subtask
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   )}
                 </Card>
@@ -231,16 +366,16 @@ export const ProjectsScreen: React.FC = () => {
         <BottomSheetModal
           visible={isAddOpen}
           onClose={() => setIsAddOpen(false)}
-          title="New Project"
+          title="Create New Project"
         >
           <View style={styles.modalForm}>
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Project Title
+              Project Title *
             </Text>
             <TextInput
               value={title}
               onChangeText={setTitle}
-              placeholder="e.g. Distributed Database Engine"
+              placeholder="e.g. AI Portfolio Website"
               placeholderTextColor={colors.textMuted}
               style={[
                 styles.modalInput,
@@ -249,12 +384,12 @@ export const ProjectsScreen: React.FC = () => {
             />
 
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Due Date (YYYY-MM-DD)
+              Target Due Date (YYYY-MM-DD)
             </Text>
             <TextInput
               value={dueDate}
               onChangeText={setDueDate}
-              placeholder="2026-12-31"
+              placeholder="2026-12-15"
               placeholderTextColor={colors.textMuted}
               style={[
                 styles.modalInput,
@@ -263,18 +398,18 @@ export const ProjectsScreen: React.FC = () => {
             />
 
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Key Milestones / Subtasks (one per line)
+              Subtasks / Milestones (one per line)
             </Text>
             <TextInput
               value={initialTasks}
               onChangeText={setInitialTasks}
-              placeholder={'Architecture Plan\nPrototype Implementation\nUnit Testing\nDocumentation'}
-              placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={4}
+              placeholder="Design mockups&#10;Develop core UI&#10;Testing and launch"
+              placeholderTextColor={colors.textMuted}
               style={[
                 styles.modalInput,
-                styles.multilineInput,
+                styles.textArea,
                 { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
               ]}
             />
@@ -282,10 +417,82 @@ export const ProjectsScreen: React.FC = () => {
             <Button
               title="Create Project"
               onPress={handleCreateProject}
-              variant="primary"
-              size="lg"
-              style={{ marginTop: 20 }}
+              style={{ marginTop: 16 }}
             />
+          </View>
+        </BottomSheetModal>
+
+        {/* Edit Project Modal */}
+        <BottomSheetModal
+          visible={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          title="Edit Project"
+        >
+          <View style={styles.modalForm}>
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Project Title *
+            </Text>
+            <TextInput
+              value={editTitle}
+              onChangeText={setEditTitle}
+              style={[
+                styles.modalInput,
+                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+            />
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Target Due Date (YYYY-MM-DD)
+            </Text>
+            <TextInput
+              value={editDueDate}
+              onChangeText={setEditDueDate}
+              style={[
+                styles.modalInput,
+                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+            />
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Status
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+              {(['in_progress', 'completed', 'planning', 'on_hold'] as const).map((st) => (
+                <TouchableOpacity
+                  key={st}
+                  onPress={() => setEditStatus(st)}
+                  style={[
+                    styles.statusSelectBtn,
+                    editStatus === st && { backgroundColor: colors.accentMint, borderColor: colors.primary },
+                    { borderColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.captionBold,
+                      { color: editStatus === st ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    {st === 'in_progress' ? 'Active' : st.charAt(0).toUpperCase() + st.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={{ flexDirection: 'row', marginTop: 16, gap: 10 }}>
+              <Button
+                title="Cancel"
+                variant="ghost"
+                onPress={() => setIsEditOpen(false)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Save Changes"
+                variant="primary"
+                onPress={handleSaveEdit}
+                style={{ flex: 2 }}
+              />
+            </View>
           </View>
         </BottomSheetModal>
       </View>
@@ -296,23 +503,23 @@ export const ProjectsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    marginBottom: 16,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
   menuBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -321,9 +528,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -331,11 +538,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollListPadding: {
-    paddingBottom: 60,
+    paddingBottom: 110,
   },
   projectCard: {
-    padding: 16,
     marginBottom: 12,
+    padding: 16,
   },
   projectHeader: {
     flexDirection: 'row',
@@ -355,36 +562,81 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionIconBtn: {
+    padding: 4,
+  },
   tasksList: {
     borderTopWidth: 1,
+    paddingTop: 12,
     marginTop: 12,
-    paddingTop: 10,
   },
-  taskItem: {
+  taskRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 4,
   },
   taskTitle: {
-    marginLeft: 8,
+    marginLeft: 10,
     flex: 1,
   },
+  addSubtaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  subtaskInput: {
+    flex: 1,
+    height: 38,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    fontSize: 14,
+  },
+  subtaskAddBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  addTaskTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    marginTop: 4,
+  },
   modalForm: {
-    paddingTop: 8,
+    paddingBottom: 24,
   },
   formLabel: {
     marginBottom: 6,
-    marginTop: 12,
+    letterSpacing: 0.5,
   },
   modalInput: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
+    height: 48,
     borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    marginBottom: 14,
   },
-  multilineInput: {
-    minHeight: 100,
+  textArea: {
+    height: 100,
     textAlignVertical: 'top',
+    paddingTop: 10,
+  },
+  statusSelectBtn: {
+    flex: 1,
+    height: 38,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
-
