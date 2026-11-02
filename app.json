@@ -8,9 +8,11 @@
     "scheme": "growpro",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.growpro.app"
     },
     "android": {
+      "package": "com.growpro.app",
       "adaptiveIcon": {
         "backgroundColor": "#0F4D2E"
       },
