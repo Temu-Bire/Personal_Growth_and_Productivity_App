@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Switch } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
@@ -8,6 +9,7 @@ import { BackupService } from '../backup.service';
 import { useTheme } from '../../../hooks/useTheme';
 
 export const DataBackupScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
 
   const [loadingExport, setLoadingExport] = useState(false);
@@ -59,8 +61,23 @@ export const DataBackupScreen: React.FC = () => {
   };
 
   return (
-    <Screen scroll backgroundColor={colors.background}>
+    <Screen scroll backgroundColor={colors.background} contentContainerStyle={styles.scrollPadding} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.container}>
+        {/* Top Header */}
+        <View style={styles.topNav}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={[styles.backBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.topTitle, typography.h2, { color: colors.textPrimary, marginLeft: 12 }]}>
+            Data & Backup
+          </Text>
+        </View>
+
         {/* Banner */}
         <Card style={[styles.bannerCard, { backgroundColor: colors.accentMint }]}>
           <Ionicons name="cloud-offline" size={28} color={colors.primary} />
@@ -163,9 +180,28 @@ export const DataBackupScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  scrollPadding: {
+    paddingBottom: 60,
+  },
   container: {
     paddingHorizontal: 16,
     paddingTop: 8,
+  },
+  topNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topTitle: {
+    fontWeight: '700',
   },
   bannerCard: {
     flexDirection: 'row',
@@ -207,3 +243,4 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 });
+

@@ -128,3 +128,4 @@ export class HabitsRepository {
     db.runSync('UPDATE habits SET is_archived = 1 WHERE id = ?', [id]);
   }
 }
+

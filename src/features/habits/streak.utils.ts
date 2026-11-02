@@ -50,3 +50,4 @@ export function calculateHabitStreak(
     last7Days,
   };
 }
+

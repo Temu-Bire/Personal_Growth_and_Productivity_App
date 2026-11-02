@@ -62,3 +62,4 @@ export const typography = {
     fontWeight: '600' as TextStyle['fontWeight'],
   },
 };
+

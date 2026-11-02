@@ -27,3 +27,4 @@ export function formatMinutesToHours(minutes: number): string {
   if (remainingMins === 0) return `${hrs}h`;
   return `${hrs}h ${remainingMins}m`;
 }
+

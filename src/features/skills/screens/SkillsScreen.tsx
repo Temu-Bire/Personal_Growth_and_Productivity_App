@@ -8,7 +8,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
@@ -21,6 +21,7 @@ import { useTheme } from '../../../hooks/useTheme';
 import { SkillsRepository, Skill } from '../skills.repository';
 
 export const SkillsScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
 
   const [activeTab, setActiveTab] = useState<'technical' | 'soft'>('technical');
@@ -68,13 +69,24 @@ export const SkillsScreen: React.FC = () => {
   };
 
   return (
-    <Screen backgroundColor={colors.background}>
+    <Screen backgroundColor={colors.background} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary }]}>
-            Skills & Learning
-          </Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.goBack()}
+              style={[styles.backBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]}>
+              Skills & Learning
+            </Text>
+          </View>
           <TouchableOpacity
             onPress={() => setIsAddOpen(true)}
             style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
@@ -96,7 +108,11 @@ export const SkillsScreen: React.FC = () => {
         />
 
         {/* Skills List */}
-        <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.scrollListPadding}
+          showsVerticalScrollIndicator={false}
+        >
           {skills.length === 0 ? (
             <EmptyState
               icon="sparkles-outline"
@@ -231,6 +247,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontWeight: '800',
   },
@@ -243,6 +272,9 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  scrollListPadding: {
+    paddingBottom: 60,
   },
   skillCard: {
     padding: 14,
@@ -293,3 +325,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 });
+

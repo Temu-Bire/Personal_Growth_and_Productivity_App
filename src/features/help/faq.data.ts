@@ -25,3 +25,4 @@ export const FAQ_DATA: FAQItem[] = [
       'The timer anchors against your device system clock timestamp rather than relying on an active JavaScript tick loop, guaranteeing accurate elapsed time even when your phone screen turns off.',
   },
 ];
+

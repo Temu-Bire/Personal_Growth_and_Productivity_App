@@ -41,3 +41,4 @@ export const DrawerNavigator: React.FC = () => {
     </Drawer.Navigator>
   );
 };
+

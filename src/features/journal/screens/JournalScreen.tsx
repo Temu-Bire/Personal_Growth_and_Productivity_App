@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
@@ -28,6 +28,7 @@ const MOOD_EMOJIS: Record<number, string> = {
 };
 
 export const JournalScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -90,12 +91,23 @@ export const JournalScreen: React.FC = () => {
   };
 
   return (
-    <Screen scroll backgroundColor={colors.background}>
+    <Screen scroll backgroundColor={colors.background} contentContainerStyle={styles.scrollPadding}>
       <View style={styles.container}>
         {/* Header */}
-        <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary }]}>
-          My Journal
-        </Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.openDrawer()}
+            style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Open Menu"
+          >
+            <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]}>
+            My Journal
+          </Text>
+        </View>
 
         {/* Tabs: Daily, Weekly, Monthly */}
         <SegmentedTabs
@@ -226,13 +238,28 @@ export const JournalScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  scrollPadding: {
+    paddingBottom: 60,
+  },
   container: {
     paddingHorizontal: 16,
     paddingTop: 8,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontWeight: '800',
-    marginVertical: 8,
   },
   composeCard: {
     padding: 18,
@@ -295,3 +322,4 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
 });
+

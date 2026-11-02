@@ -79,3 +79,4 @@ export class TasksRepository {
     db.runSync('UPDATE tasks SET deleted_at = ? WHERE id = ?', [new Date().toISOString(), id]);
   }
 }
+

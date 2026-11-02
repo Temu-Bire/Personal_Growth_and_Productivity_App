@@ -48,12 +48,23 @@ export const SettingsScreen: React.FC = () => {
   };
 
   return (
-    <Screen scroll backgroundColor={colors.background}>
+    <Screen scroll backgroundColor={colors.background} contentContainerStyle={styles.scrollPadding}>
       <View style={styles.container}>
         {/* Header */}
-        <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary }]}>
-          Settings
-        </Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.openDrawer()}
+            style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Open Menu"
+          >
+            <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]}>
+            Settings
+          </Text>
+        </View>
 
         {/* Profile Card */}
         <Card style={styles.profileCard}>
@@ -273,13 +284,28 @@ export const SettingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  scrollPadding: {
+    paddingBottom: 60,
+  },
   container: {
     paddingHorizontal: 16,
     paddingTop: 8,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontWeight: '800',
-    marginVertical: 8,
   },
   profileCard: {
     flexDirection: 'row',
@@ -367,3 +393,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 });
+

@@ -8,7 +8,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
@@ -22,6 +22,7 @@ import { useTheme } from '../../../hooks/useTheme';
 import { GoalsRepository, Goal, GoalMilestone } from '../goals.repository';
 
 export const GoalsScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
 
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
@@ -90,9 +91,20 @@ export const GoalsScreen: React.FC = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary }]}>
-            My Goals
-          </Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.openDrawer()}
+              style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open Menu"
+            >
+              <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]}>
+              My Goals
+            </Text>
+          </View>
           <TouchableOpacity
             onPress={() => setIsAddOpen(true)}
             style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
@@ -114,7 +126,11 @@ export const GoalsScreen: React.FC = () => {
         />
 
         {/* Goals List */}
-        <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.scrollListPadding}
+          showsVerticalScrollIndicator={false}
+        >
           {goals.length === 0 ? (
             <EmptyState
               icon="flag-outline"
@@ -283,6 +299,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontWeight: '800',
   },
@@ -295,6 +324,9 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  scrollListPadding: {
+    paddingBottom: 60,
   },
   goalCard: {
     padding: 16,
@@ -345,3 +377,4 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
 });
+

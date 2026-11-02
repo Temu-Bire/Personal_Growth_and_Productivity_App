@@ -42,3 +42,4 @@ export function resetDatabase(): void {
   }
   db.execSync(CREATE_TABLES_SQL);
 }
+

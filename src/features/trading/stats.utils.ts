@@ -65,3 +65,4 @@ export function calculateTradingStats(trades: TradeRecord[]) {
     pnlCurve,
   };
 }
+

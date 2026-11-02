@@ -59,3 +59,4 @@ export class JournalRepository {
     return Number((sum / rows.length).toFixed(1));
   }
 }
+

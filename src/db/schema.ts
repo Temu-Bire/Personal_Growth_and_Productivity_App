@@ -201,3 +201,4 @@ CREATE TABLE IF NOT EXISTS weekly_reviews (
 );
 CREATE INDEX IF NOT EXISTS idx_weekly_reviews_start ON weekly_reviews(week_start_date);
 `;
+

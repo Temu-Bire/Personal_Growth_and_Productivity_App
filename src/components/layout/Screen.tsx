@@ -16,6 +16,7 @@ interface ScreenProps {
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
   backgroundColor?: string;
+  edges?: ('top' | 'right' | 'bottom' | 'left')[];
 }
 
 export const Screen: React.FC<ScreenProps> = ({
@@ -24,13 +25,14 @@ export const Screen: React.FC<ScreenProps> = ({
   style,
   contentContainerStyle,
   backgroundColor,
+  edges = ['top', 'left', 'right'],
 }) => {
   const { colors, isDark } = useTheme();
 
   const bg = backgroundColor || colors.background;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: bg }, style]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: bg }, style]} edges={edges}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       {scroll ? (
         <ScrollView

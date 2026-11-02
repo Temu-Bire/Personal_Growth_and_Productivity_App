@@ -26,3 +26,4 @@ export const useUIStore = create<UIState>((set) => ({
   hideToast: () => set({ toast: null }),
   setActiveDate: (date) => set({ activeDate: date }),
 }));
+

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
@@ -7,6 +8,7 @@ import { FAQ_DATA } from '../faq.data';
 import { useTheme } from '../../../hooks/useTheme';
 
 export const HelpScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
   const [expandedFaqIndex, setExpandedFaqIndex] = useState<number | null>(0);
 
@@ -29,12 +31,23 @@ export const HelpScreen: React.FC = () => {
   };
 
   return (
-    <Screen scroll backgroundColor={colors.background}>
+    <Screen scroll backgroundColor={colors.background} contentContainerStyle={styles.scrollPadding}>
       <View style={styles.container}>
         {/* Header */}
-        <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary }]}>
-          Help & Support
-        </Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.openDrawer()}
+            style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Open Menu"
+          >
+            <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]}>
+            Help & Support
+          </Text>
+        </View>
 
         {/* Quick Help Links */}
         <Card style={styles.linksCard}>
@@ -125,13 +138,28 @@ export const HelpScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  scrollPadding: {
+    paddingBottom: 60,
+  },
   container: {
     paddingHorizontal: 16,
     paddingTop: 8,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontWeight: '800',
-    marginVertical: 8,
   },
   linksCard: {
     padding: 10,
@@ -188,3 +216,4 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
 });
+

@@ -108,3 +108,4 @@ export class ProjectsRepository {
     return db.getFirstSync<ProjectTask>('SELECT * FROM project_tasks WHERE id = ?', [id])!;
   }
 }
+

@@ -90,3 +90,4 @@ export const darkColors: ColorPalette = {
   overlay: 'rgba(0, 0, 0, 0.7)',
   lockBg: '#091A10',
 };
+

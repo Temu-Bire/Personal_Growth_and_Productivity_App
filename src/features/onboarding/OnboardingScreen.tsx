@@ -1,22 +1,22 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  Switch,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { ONBOARDING_SLIDES } from './slides';
-import { useSettingsStore } from '../../store/useSettingsStore';
-import { useTheme } from '../../hooks/useTheme';
-import { FOCUS_CATEGORIES } from '../../constants/defaults';
+import React, { useState } from 'react';
+import {
+  Alert,
+  Image,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui/Button';
+import { FOCUS_CATEGORIES } from '../../constants/defaults';
+import { useTheme } from '../../hooks/useTheme';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { ONBOARDING_SLIDES } from './slides';
 
 interface Props {
   navigation: any;
@@ -582,3 +582,4 @@ const styles = StyleSheet.create({
     padding: 10,
   },
 });
+

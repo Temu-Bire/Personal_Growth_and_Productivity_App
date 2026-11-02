@@ -8,8 +8,9 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { useFocusEffect, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
@@ -24,6 +25,8 @@ import { Task } from '../tasks.types';
 
 export const TasksScreen: React.FC = () => {
   const route = useRoute<any>();
+  const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { colors, typography, radius } = useTheme();
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -93,8 +96,24 @@ export const TasksScreen: React.FC = () => {
   const formattedDate = format(parseISO(selectedDate), 'EEE, MMM d, yyyy');
 
   return (
-    <Screen backgroundColor={colors.background}>
+    <Screen backgroundColor={colors.background} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.container}>
+        {/* Top Navigation Bar with Back Button */}
+        <View style={styles.topNav}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.topTitle, typography.h2, { color: colors.textPrimary }]}>
+            Tasks & Schedule
+          </Text>
+          <View style={{ width: 40 }} />
+        </View>
+
         {/* Date Selector Header */}
         <View style={styles.dateHeader}>
           <TouchableOpacity onPress={handlePrevDay} style={styles.arrowBtn} accessibilityLabel="Previous Day">
@@ -125,7 +144,11 @@ export const TasksScreen: React.FC = () => {
 
         {/* Content */}
         {activeTab === 'tasks' ? (
-          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.scrollListPadding}
+            showsVerticalScrollIndicator={false}
+          >
             {tasks.length === 0 ? (
               <EmptyState
                 icon="checkbox-outline"
@@ -199,7 +222,11 @@ export const TasksScreen: React.FC = () => {
           </ScrollView>
         ) : (
           /* Schedule Timeline View */
-          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.scrollListPadding}
+            showsVerticalScrollIndicator={false}
+          >
             {tasks.map((task, idx) => (
               <View key={task.id} style={styles.timelineRow}>
                 <View style={styles.timelineLeft}>
@@ -226,12 +253,13 @@ export const TasksScreen: React.FC = () => {
         )}
 
         {/* Bottom Add Task Button */}
-        <View style={styles.bottomBar}>
+        <View style={[styles.bottomBar, { bottom: Math.max(insets.bottom, 16) }]}>
           <Button
             title="+ Add Task"
             onPress={() => setIsAddModalOpen(true)}
             variant="primary"
             size="lg"
+            style={styles.shadowBtn}
           />
         </View>
 
@@ -350,11 +378,26 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
+  topNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topTitle: {
+    fontWeight: '700',
+  },
   dateHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   arrowBtn: {
     padding: 8,
@@ -368,6 +411,9 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  scrollListPadding: {
+    paddingBottom: 110,
   },
   taskCard: {
     paddingVertical: 14,
@@ -410,9 +456,16 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     position: 'absolute',
-    bottom: 20,
     left: 16,
     right: 16,
+    zIndex: 10,
+  },
+  shadowBtn: {
+    shadowColor: '#1E8E4E',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
   },
   modalForm: {
     paddingTop: 8,
@@ -447,3 +500,4 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
 });
+

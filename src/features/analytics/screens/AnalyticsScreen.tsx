@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
 import { SegmentedTabs } from '../../../components/ui/SegmentedTabs';
@@ -9,18 +11,30 @@ import { useTheme } from '../../../hooks/useTheme';
 import { useAnalytics } from '../hooks/useAnalytics';
 
 export const AnalyticsScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
   const [activeTab, setActiveTab] = useState<'overview' | 'habits' | 'learning'>('overview');
 
   const { productivityScore, productivityTrend, donutSegments } = useAnalytics();
 
   return (
-    <Screen scroll backgroundColor={colors.background}>
+    <Screen scroll backgroundColor={colors.background} contentContainerStyle={styles.scrollPadding}>
       <View style={styles.container}>
         {/* Header */}
-        <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary }]}>
-          Analytics
-        </Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.openDrawer()}
+            style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Open Menu"
+          >
+            <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]}>
+            Analytics
+          </Text>
+        </View>
 
         {/* Segmented Tabs: Overview / Habits / Learning */}
         <SegmentedTabs
@@ -98,13 +112,28 @@ export const AnalyticsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  scrollPadding: {
+    paddingBottom: 110,
+  },
   container: {
     paddingHorizontal: 16,
     paddingTop: 8,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontWeight: '800',
-    marginVertical: 8,
   },
   productivityCard: {
     padding: 18,
@@ -146,3 +175,4 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
 });
+

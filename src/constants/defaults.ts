@@ -16,3 +16,4 @@ export const DEFAULT_SETTINGS = {
 };
 
 export const FOCUS_CATEGORIES = ['Study', 'Habits', 'Work', 'Trading'] as const;
+

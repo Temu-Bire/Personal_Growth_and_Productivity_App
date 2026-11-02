@@ -54,17 +54,29 @@ export const DashboardScreen: React.FC = () => {
   };
 
   return (
-    <Screen scroll backgroundColor={colors.background}>
+    <Screen scroll backgroundColor={colors.background} contentContainerStyle={styles.scrollPadding}>
       <View style={styles.container}>
         {/* Header: Greeting & Notification Bell */}
         <View style={styles.header}>
-          <View>
-            <Text style={[styles.greeting, typography.h1, { color: colors.textPrimary }]}>
-              Hello, {profileName || 'Temesgen'} 👋
-            </Text>
-            <Text style={[styles.greetingSub, typography.subtext, { color: colors.textSecondary }]}>
-              Keep going! You're doing great.
-            </Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.openDrawer()}
+              style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open Menu"
+            >
+              <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+
+            <View style={{ marginLeft: 10 }}>
+              <Text style={[styles.greeting, typography.h2, { color: colors.textPrimary }]}>
+                Hello, {profileName || 'Temesgen'} 👋
+              </Text>
+              <Text style={[styles.greetingSub, typography.caption, { color: colors.textSecondary }]}>
+                Keep going! You're doing great.
+              </Text>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -252,6 +264,9 @@ export const DashboardScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  scrollPadding: {
+    paddingBottom: 110,
+  },
   container: {
     paddingHorizontal: 20,
     paddingTop: 8,
@@ -261,6 +276,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  menuBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   greeting: {
     fontWeight: '800',
@@ -374,3 +402,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+

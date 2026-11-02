@@ -8,7 +8,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
@@ -22,6 +22,7 @@ import { useTheme } from '../../../hooks/useTheme';
 import { StudyRepository, Subject, StudyTopic } from '../study.repository';
 
 export const StudyScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
 
   const [activeTab, setActiveTab] = useState<'subjects' | 'schedule'>('subjects');
@@ -84,9 +85,20 @@ export const StudyScreen: React.FC = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary }]}>
-            Study Plan
-          </Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.openDrawer()}
+              style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open Menu"
+            >
+              <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]}>
+              Study Plan
+            </Text>
+          </View>
           <TouchableOpacity
             onPress={() => setIsAddSubjectOpen(true)}
             style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
@@ -108,7 +120,11 @@ export const StudyScreen: React.FC = () => {
         />
 
         {activeTab === 'subjects' ? (
-          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.scrollListPadding}
+            showsVerticalScrollIndicator={false}
+          >
             {subjects.length === 0 ? (
               <EmptyState
                 icon="school-outline"
@@ -204,7 +220,11 @@ export const StudyScreen: React.FC = () => {
           </ScrollView>
         ) : (
           /* Study Schedule Tab */
-          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.scrollListPadding}
+            showsVerticalScrollIndicator={false}
+          >
             {[
               { day: 'Monday', time: '9:00 AM - 10:30 AM', subj: 'Mathematics', loc: 'Room 204' },
               { day: 'Monday', time: '11:00 AM - 12:30 PM', subj: 'Physics', loc: 'Lab A' },
@@ -297,6 +317,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontWeight: '800',
   },
@@ -309,6 +342,9 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  scrollListPadding: {
+    paddingBottom: 60,
   },
   subjectCard: {
     padding: 16,
@@ -388,3 +424,4 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
 });
+

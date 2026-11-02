@@ -8,7 +8,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
@@ -23,6 +23,7 @@ import { TradingRepository, Trade } from '../trading.repository';
 import { formatCurrency } from '../../../utils/format';
 
 export const TradingScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'trades'>('overview');
@@ -84,9 +85,20 @@ export const TradingScreen: React.FC = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary }]}>
-            Trading Journal
-          </Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.openDrawer()}
+              style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open Menu"
+            >
+              <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]}>
+              Trading Journal
+            </Text>
+          </View>
           <TouchableOpacity
             onPress={() => setIsAddOpen(true)}
             style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
@@ -108,7 +120,11 @@ export const TradingScreen: React.FC = () => {
         />
 
         {activeTab === 'overview' ? (
-          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.scrollListPadding}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Stat Cards Row */}
             <View style={styles.statsRow}>
               <StatCard
@@ -200,7 +216,11 @@ export const TradingScreen: React.FC = () => {
           </ScrollView>
         ) : (
           /* Full Trades List */
-          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.scrollListPadding}
+            showsVerticalScrollIndicator={false}
+          >
             {trades.length === 0 ? (
               <EmptyState
                 icon="trending-up-outline"
@@ -435,6 +455,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontWeight: '800',
   },
@@ -447,6 +480,9 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  scrollListPadding: {
+    paddingBottom: 60,
   },
   statsRow: {
     flexDirection: 'row',
@@ -517,3 +553,4 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
 });
+

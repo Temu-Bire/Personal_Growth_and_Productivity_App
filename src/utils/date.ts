@@ -29,3 +29,4 @@ export function getDaysAgo(days: number): string {
 export function getDaysAhead(days: number): string {
   return formatDate(addDays(new Date(), days), 'yyyy-MM-dd');
 }
+

@@ -17,3 +17,4 @@ export interface Task {
 }
 
 export type CreateTaskDTO = Omit<Task, 'id' | 'is_completed' | 'completed_at' | 'created_at' | 'updated_at' | 'deleted_at'>;
+

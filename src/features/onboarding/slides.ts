@@ -37,3 +37,4 @@ export const ONBOARDING_SLIDES: OnboardingSlide[] = [
     iconColor: '#7C3AED',
   },
 ];
+

@@ -83,3 +83,4 @@ export const LineChart: React.FC<LineChartProps> = ({
     </View>
   );
 };
+

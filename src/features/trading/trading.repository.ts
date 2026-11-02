@@ -75,3 +75,4 @@ export class TradingRepository {
     db.runSync('DELETE FROM trades WHERE id = ?', [id]);
   }
 }
+
