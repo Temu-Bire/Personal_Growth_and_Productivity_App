@@ -30,3 +30,4 @@ export const migrationV3: Migration = {
     `);
   },
 };
+

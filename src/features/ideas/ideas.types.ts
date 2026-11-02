@@ -27,3 +27,4 @@ export interface UpdateIdeaDTO {
   isPinned?: boolean;
   color?: string;
 }
+
