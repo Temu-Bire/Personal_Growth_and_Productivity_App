@@ -34,6 +34,7 @@ export const TradingScreen: React.FC = () => {
     pnlCurve: [0, 25, 13, 54, 139, 204, 219, 209, 245.5],
   });
 
+  // Add Modal State
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [pair, setPair] = useState('EURUSD');
   const [direction, setDirection] = useState<'buy' | 'sell'>('buy');
@@ -43,6 +44,19 @@ export const TradingScreen: React.FC = () => {
   const [pnl, setPnl] = useState('25.20');
   const [notes, setNotes] = useState('');
 
+  // Detail Modal State (Requirement 4)
+  const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
+
+  // Edit Modal State
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editPair, setEditPair] = useState('');
+  const [editDirection, setEditDirection] = useState<'buy' | 'sell'>('buy');
+  const [editEntry, setEditEntry] = useState('');
+  const [editExit, setEditExit] = useState('');
+  const [editLot, setEditLot] = useState('');
+  const [editPnl, setEditPnl] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+
   const loadData = useCallback(() => {
     const list = TradingRepository.getAllTrades();
     setTrades(list);
@@ -50,7 +64,12 @@ export const TradingScreen: React.FC = () => {
     if (computedStats.totalTrades > 0) {
       setStats(computedStats);
     }
-  }, []);
+
+    if (selectedTrade) {
+      const refreshed = list.find((t) => t.id === selectedTrade.id);
+      setSelectedTrade(refreshed || null);
+    }
+  }, [selectedTrade?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -79,6 +98,63 @@ export const TradingScreen: React.FC = () => {
     setIsAddOpen(false);
     loadData();
   };
+
+  const handleOpenDetail = (trade: Trade) => {
+    setSelectedTrade(trade);
+  };
+
+  const handleOpenEdit = (trade: Trade) => {
+    setEditPair(trade.pair);
+    setEditDirection(trade.direction);
+    setEditEntry(String(trade.entry_price));
+    setEditExit(String(trade.exit_price));
+    setEditLot(String(trade.lot_size));
+    setEditPnl(String(trade.pnl));
+    setEditNotes(trade.notes || '');
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedTrade || !editPair.trim()) {
+      Alert.alert('Required', 'Please enter asset pair.');
+      return;
+    }
+
+    TradingRepository.updateTrade(selectedTrade.id, {
+      pair: editPair.trim(),
+      direction: editDirection,
+      entryPrice: parseFloat(editEntry) || 0,
+      exitPrice: parseFloat(editExit) || 0,
+      lotSize: parseFloat(editLot) || 1,
+      pnl: parseFloat(editPnl) || 0,
+      notes: editNotes,
+    });
+
+    setIsEditOpen(false);
+    loadData();
+  };
+
+  const handleDeleteTrade = (trade: Trade) => {
+    Alert.alert(
+      'Delete Trade',
+      `Are you sure you want to delete this ${trade.direction.toUpperCase()} trade on ${trade.pair}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            TradingRepository.deleteTrade(trade.id);
+            setSelectedTrade(null);
+            setIsEditOpen(false);
+            loadData();
+          },
+        },
+      ]
+    );
+  };
+
+  const recentTrades = trades.slice(0, 4);
 
   return (
     <Screen backgroundColor={colors.background}>
@@ -117,105 +193,138 @@ export const TradingScreen: React.FC = () => {
           ]}
           activeTab={activeTab}
           onTabChange={setActiveTab}
+          style={{ marginBottom: 16 }}
         />
 
         {activeTab === 'overview' ? (
+          /* Overview Tab */
           <ScrollView
             style={styles.list}
             contentContainerStyle={styles.scrollListPadding}
             showsVerticalScrollIndicator={false}
           >
-            {/* Stat Cards Row */}
-            <View style={styles.statsRow}>
+            {/* Top Stat Cards */}
+            <View style={styles.statCardsRow}>
               <StatCard
                 label="Win Rate"
-                value={`${stats.winRate}%`}
+                value={`${stats.winRate || 62.5}%`}
+                subtext="+5% this week"
                 trend="+5%"
                 trendPositive={true}
-                icon="trophy-outline"
-                iconColor={colors.primary}
+                style={{ flex: 1 }}
               />
               <StatCard
                 label="Total P&L"
-                value={formatCurrency(stats.totalPnl)}
-                trend="+12%"
+                value={formatCurrency(stats.totalPnl || 245.5)}
+                subtext="Net profit"
+                trend={stats.totalPnl >= 0 ? '+profit' : '-loss'}
                 trendPositive={stats.totalPnl >= 0}
-                icon="cash-outline"
-                iconColor={stats.totalPnl >= 0 ? colors.primary : colors.danger}
+                style={{ flex: 1 }}
               />
             </View>
 
-            {/* Performance Curve Card */}
-            <Card style={styles.chartCard}>
-              <Text style={[styles.cardTitle, typography.h3, { color: colors.textPrimary }]}>
-                Equity & P&L Curve
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted, marginBottom: 8 }]}>
-                Cumulative returns over time
-              </Text>
+            {/* Performance Equity Curve */}
+            <Card variant="elevated" style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <Text style={[styles.chartTitle, typography.h3, { color: colors.textPrimary }]}>
+                  Equity Curve
+                </Text>
+                <Text style={[typography.captionBold, { color: colors.primary }]}>
+                  Cumulative P&L
+                </Text>
+              </View>
+
               <LineChart
-                data={stats.pnlCurve && stats.pnlCurve.length > 1 ? stats.pnlCurve : [0, 25, 45, 90, 245.5]}
+                data={stats.pnlCurve && stats.pnlCurve.length > 1 ? stats.pnlCurve : [0, 20, 50, 45, 90, 140, 245.5]}
+                width={320}
                 height={120}
                 color={colors.primary}
               />
             </Card>
 
-            {/* Recent Trades */}
+            {/* Recent Trades Preview */}
             <View style={styles.sectionHeader}>
-              <Text style={[typography.h2, { color: colors.textPrimary, fontWeight: '700' }]}>
+              <Text style={[styles.sectionTitle, typography.h2, { color: colors.textPrimary }]}>
                 Recent Trades
               </Text>
               <TouchableOpacity onPress={() => setActiveTab('trades')}>
-                <Text style={[typography.captionBold, { color: colors.primary }]}>
-                  View All →
+                <Text style={[styles.viewAllText, typography.captionBold, { color: colors.primary }]}>
+                  View all →
                 </Text>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.tradesList}>
-              {trades.slice(0, 4).map((trade) => {
-                const isWin = trade.pnl >= 0;
+            {recentTrades.length === 0 ? (
+              <EmptyState
+                icon="trending-up-outline"
+                title="No trades logged"
+                description="Record executions, lot sizes, and setup rules."
+                actionTitle="+ Log Trade"
+                onAction={() => setIsAddOpen(true)}
+              />
+            ) : (
+              recentTrades.map((t) => {
+                const isWin = t.pnl >= 0;
                 return (
-                  <Card key={trade.id} style={styles.tradeCard}>
-                    <View style={styles.tradeRow}>
-                      <View style={[styles.dirBadge, { backgroundColor: trade.direction === 'buy' ? colors.accentMint : colors.dangerSoft }]}>
-                        <Text
+                  <TouchableOpacity
+                    key={t.id}
+                    activeOpacity={0.75}
+                    onPress={() => handleOpenDetail(t)}
+                  >
+                    <Card style={styles.compactTradeCard}>
+                      <View style={styles.tradeRow}>
+                        <View
                           style={[
-                            typography.captionBold,
-                            { color: trade.direction === 'buy' ? colors.primary : colors.danger },
+                            styles.dirBadge,
+                            {
+                              backgroundColor:
+                                t.direction === 'buy' ? colors.accentMint : colors.dangerSoft,
+                            },
                           ]}
                         >
-                          {trade.direction.toUpperCase()}
-                        </Text>
-                      </View>
+                          <Text
+                            style={[
+                              typography.captionBold,
+                              { color: t.direction === 'buy' ? colors.primary : colors.danger },
+                            ]}
+                          >
+                            {t.direction.toUpperCase()}
+                          </Text>
+                        </View>
 
-                      <View style={styles.tradeDetails}>
-                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                          FX {trade.pair}
-                        </Text>
-                        <Text style={[typography.caption, { color: colors.textMuted }]}>
-                          Lot: {trade.lot_size} · {trade.date}
-                        </Text>
-                      </View>
+                        <View style={styles.tradeDetails}>
+                          <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                            {t.pair}
+                          </Text>
+                          <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                            {t.entry_price} → {t.exit_price}
+                          </Text>
+                        </View>
 
-                      <Text
-                        style={[
-                          styles.pnlText,
-                          typography.bodyBold,
-                          { color: isWin ? colors.primary : colors.danger },
-                        ]}
-                      >
-                        {formatCurrency(trade.pnl)}
-                      </Text>
-                    </View>
-                  </Card>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text
+                            style={[
+                              styles.pnlText,
+                              typography.h3,
+                              { color: isWin ? colors.primary : colors.danger },
+                            ]}
+                          >
+                            {formatCurrency(t.pnl)}
+                          </Text>
+                          <Text style={[typography.caption, { color: colors.textMuted }]}>
+                            {t.date}
+                          </Text>
+                        </View>
+                      </View>
+                    </Card>
+                  </TouchableOpacity>
                 );
-              })}
-            </View>
+              })
+            )}
             <View style={{ height: 40 }} />
           </ScrollView>
         ) : (
-          /* Full Trades List */
+          /* All Trades Tab */
           <ScrollView
             style={styles.list}
             contentContainerStyle={styles.scrollListPadding}
@@ -224,58 +333,84 @@ export const TradingScreen: React.FC = () => {
             {trades.length === 0 ? (
               <EmptyState
                 icon="trending-up-outline"
-                title="No trades recorded"
-                description="Log your trade setups, risk/reward, and execution performance."
-                actionTitle="+ Add Trade"
+                title="No trades yet"
+                description="Start recording your trades to calculate win rate and profit factors."
+                actionTitle="+ Log First Trade"
                 onAction={() => setIsAddOpen(true)}
               />
             ) : (
               trades.map((trade) => {
                 const isWin = trade.pnl >= 0;
                 return (
-                  <Card key={trade.id} style={styles.tradeCard}>
-                    <View style={styles.tradeRow}>
-                      <View style={[styles.dirBadge, { backgroundColor: trade.direction === 'buy' ? colors.accentMint : colors.dangerSoft }]}>
-                        <Text
+                  <TouchableOpacity
+                    key={trade.id}
+                    activeOpacity={0.75}
+                    onPress={() => handleOpenDetail(trade)}
+                  >
+                    <Card style={styles.compactTradeCard}>
+                      <View style={styles.tradeRow}>
+                        <View
                           style={[
-                            typography.captionBold,
-                            { color: trade.direction === 'buy' ? colors.primary : colors.danger },
+                            styles.dirBadge,
+                            {
+                              backgroundColor:
+                                trade.direction === 'buy'
+                                  ? colors.accentMint
+                                  : colors.dangerSoft,
+                            },
                           ]}
                         >
-                          {trade.direction.toUpperCase()}
-                        </Text>
-                      </View>
-
-                      <View style={styles.tradeDetails}>
-                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                          FX {trade.pair}
-                        </Text>
-                        <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                          Entry: {trade.entry_price} → Exit: {trade.exit_price}
-                        </Text>
-                        {trade.notes && (
-                          <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>
-                            {trade.notes}
+                          <Text
+                            style={[
+                              typography.captionBold,
+                              { color: trade.direction === 'buy' ? colors.primary : colors.danger },
+                            ]}
+                          >
+                            {trade.direction.toUpperCase()}
                           </Text>
-                        )}
-                      </View>
+                        </View>
 
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text
-                          style={[
-                            styles.pnlText,
-                            typography.h3,
-                            { color: isWin ? colors.primary : colors.danger },
-                          ]}
-                        >
-                          {formatCurrency(trade.pnl)}
-                        </Text>
-                        <Text style={[typography.caption, { color: colors.textMuted }]}>
-                          {trade.date}
-                        </Text>
+                        <View style={styles.tradeDetails}>
+                          <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                            FX {trade.pair}
+                          </Text>
+                          <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                            Entry: {trade.entry_price} → Exit: {trade.exit_price}
+                          </Text>
+                          {trade.notes && (
+                            <Text
+                              style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}
+                              numberOfLines={1}
+                            >
+                              {trade.notes}
+                            </Text>
+                          )}
+                        </View>
+
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text
+                            style={[
+                              styles.pnlText,
+                              typography.h3,
+                              { color: isWin ? colors.primary : colors.danger },
+                            ]}
+                          >
+                            {formatCurrency(trade.pnl)}
+                          </Text>
+                          <Text style={[typography.caption, { color: colors.textMuted }]}>
+                            {trade.date}
+                          </Text>
+                        </View>
+
+                        <Ionicons
+                          name="chevron-forward"
+                          size={18}
+                          color={colors.textMuted}
+                          style={{ marginLeft: 8 }}
+                        />
                       </View>
-                    </View>
-                  </Card>
+                    </Card>
+                  </TouchableOpacity>
                 );
               })
             )}
@@ -331,7 +466,7 @@ export const TradingScreen: React.FC = () => {
             </View>
 
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Pair / Symbol
+              Pair / Symbol *
             </Text>
             <TextInput
               value={pair}
@@ -344,7 +479,7 @@ export const TradingScreen: React.FC = () => {
               ]}
             />
 
-            <View style={styles.row}>
+            <View style={styles.rowInputs}>
               <View style={{ flex: 1, marginRight: 8 }}>
                 <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
                   Entry Price
@@ -380,7 +515,7 @@ export const TradingScreen: React.FC = () => {
               </View>
             </View>
 
-            <View style={styles.row}>
+            <View style={styles.rowInputs}>
               <View style={{ flex: 1, marginRight: 8 }}>
                 <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
                   Lot Size
@@ -400,13 +535,13 @@ export const TradingScreen: React.FC = () => {
 
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-                  P&L ($)
+                  Net P&L ($)
                 </Text>
                 <TextInput
                   value={pnl}
                   onChangeText={setPnl}
                   keyboardType="numeric"
-                  placeholder="25.20"
+                  placeholder="+25.50"
                   placeholderTextColor={colors.textMuted}
                   style={[
                     styles.modalInput,
@@ -417,12 +552,12 @@ export const TradingScreen: React.FC = () => {
             </View>
 
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Notes / Strategy
+              Notes / Strategy Rationale
             </Text>
             <TextInput
               value={notes}
               onChangeText={setNotes}
-              placeholder="e.g. Trend continuation pullback"
+              placeholder="e.g. Breakout retest on 15m timeframe"
               placeholderTextColor={colors.textMuted}
               style={[
                 styles.modalInput,
@@ -431,12 +566,281 @@ export const TradingScreen: React.FC = () => {
             />
 
             <Button
-              title="Save Trade"
+              title="Save Trade Execution"
               onPress={handleCreateTrade}
-              variant="primary"
-              size="lg"
-              style={{ marginTop: 20 }}
+              style={{ marginTop: 12 }}
             />
+          </View>
+        </BottomSheetModal>
+
+        {/* Trade Full Detail View Modal (Requirement 4) */}
+        {selectedTrade && (
+          <BottomSheetModal
+            visible={!!selectedTrade && !isEditOpen}
+            onClose={() => setSelectedTrade(null)}
+            title="Trade Details"
+          >
+            <View style={styles.detailContainer}>
+              <View style={styles.tradeDetailTopRow}>
+                <View
+                  style={[
+                    styles.dirBadgeLarge,
+                    {
+                      backgroundColor:
+                        selectedTrade.direction === 'buy' ? colors.accentMint : colors.dangerSoft,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.h3,
+                      { color: selectedTrade.direction === 'buy' ? colors.primary : colors.danger },
+                    ]}
+                  >
+                    {selectedTrade.direction.toUpperCase()}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={[typography.h2, { color: colors.textPrimary, fontWeight: '800' }]}>
+                    {selectedTrade.pair}
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
+                    Executed on {selectedTrade.date}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text
+                    style={[
+                      typography.h2,
+                      {
+                        color: selectedTrade.pnl >= 0 ? colors.primary : colors.danger,
+                        fontWeight: '800',
+                      },
+                    ]}
+                  >
+                    {formatCurrency(selectedTrade.pnl)}
+                  </Text>
+                  <Text
+                    style={[
+                      typography.captionBold,
+                      { color: selectedTrade.pnl >= 0 ? colors.primary : colors.danger },
+                    ]}
+                  >
+                    {selectedTrade.pnl >= 0 ? 'PROFIT' : 'LOSS'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.tradeMetricsGrid, { borderColor: colors.border }]}>
+                <View style={styles.metricCell}>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>Entry Price</Text>
+                  <Text style={[typography.bodyBold, { color: colors.textPrimary, marginTop: 2 }]}>
+                    {selectedTrade.entry_price}
+                  </Text>
+                </View>
+                <View style={styles.metricCell}>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>Exit Price</Text>
+                  <Text style={[typography.bodyBold, { color: colors.textPrimary, marginTop: 2 }]}>
+                    {selectedTrade.exit_price}
+                  </Text>
+                </View>
+                <View style={styles.metricCell}>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>Lot Size</Text>
+                  <Text style={[typography.bodyBold, { color: colors.textPrimary, marginTop: 2 }]}>
+                    {selectedTrade.lot_size}
+                  </Text>
+                </View>
+                <View style={styles.metricCell}>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>Result</Text>
+                  <Text
+                    style={[
+                      typography.bodyBold,
+                      { color: selectedTrade.pnl >= 0 ? colors.primary : colors.danger, marginTop: 2 },
+                    ]}
+                  >
+                    {selectedTrade.pnl >= 0 ? 'Win' : 'Loss'}
+                  </Text>
+                </View>
+              </View>
+
+              {selectedTrade.notes && (
+                <View style={styles.tradeNotesBox}>
+                  <Text style={[typography.captionBold, { color: colors.textSecondary, marginBottom: 4 }]}>
+                    STRATEGY NOTES
+                  </Text>
+                  <Text style={[typography.body, { color: colors.textPrimary, lineHeight: 22 }]}>
+                    {selectedTrade.notes}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.detailActionButtons}>
+                <Button
+                  title="Edit Trade"
+                  variant="primary"
+                  onPress={() => handleOpenEdit(selectedTrade)}
+                  style={{ flex: 1, marginRight: 8 }}
+                />
+                <Button
+                  title="Delete"
+                  variant="ghost"
+                  onPress={() => handleDeleteTrade(selectedTrade)}
+                  style={{ flex: 1, marginLeft: 8 }}
+                />
+              </View>
+            </View>
+          </BottomSheetModal>
+        )}
+
+        {/* Edit Trade Modal */}
+        <BottomSheetModal
+          visible={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          title="Edit Trade"
+        >
+          <View style={styles.modalForm}>
+            <View style={styles.dirPicker}>
+              <TouchableOpacity
+                onPress={() => setEditDirection('buy')}
+                style={[
+                  styles.dirBtn,
+                  {
+                    backgroundColor: editDirection === 'buy' ? colors.primary : colors.inputBg,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    typography.captionBold,
+                    { color: editDirection === 'buy' ? '#FFFFFF' : colors.textSecondary },
+                  ]}
+                >
+                  BUY / LONG
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setEditDirection('sell')}
+                style={[
+                  styles.dirBtn,
+                  {
+                    backgroundColor: editDirection === 'sell' ? colors.danger : colors.inputBg,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    typography.captionBold,
+                    { color: editDirection === 'sell' ? '#FFFFFF' : colors.textSecondary },
+                  ]}
+                >
+                  SELL / SHORT
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Pair / Symbol *
+            </Text>
+            <TextInput
+              value={editPair}
+              onChangeText={setEditPair}
+              style={[
+                styles.modalInput,
+                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+            />
+
+            <View style={styles.rowInputs}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+                  Entry Price
+                </Text>
+                <TextInput
+                  value={editEntry}
+                  onChangeText={setEditEntry}
+                  keyboardType="numeric"
+                  style={[
+                    styles.modalInput,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+                  ]}
+                />
+              </View>
+
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+                  Exit Price
+                </Text>
+                <TextInput
+                  value={editExit}
+                  onChangeText={setEditExit}
+                  keyboardType="numeric"
+                  style={[
+                    styles.modalInput,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.rowInputs}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+                  Lot Size
+                </Text>
+                <TextInput
+                  value={editLot}
+                  onChangeText={setEditLot}
+                  keyboardType="numeric"
+                  style={[
+                    styles.modalInput,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+                  ]}
+                />
+              </View>
+
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+                  Net P&L ($)
+                </Text>
+                <TextInput
+                  value={editPnl}
+                  onChangeText={setEditPnl}
+                  keyboardType="numeric"
+                  style={[
+                    styles.modalInput,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Notes
+            </Text>
+            <TextInput
+              value={editNotes}
+              onChangeText={setEditNotes}
+              style={[
+                styles.modalInput,
+                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+            />
+
+            <View style={{ flexDirection: 'row', marginTop: 16, gap: 10 }}>
+              <Button
+                title="Cancel"
+                variant="ghost"
+                onPress={() => setIsEditOpen(false)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Save Changes"
+                variant="primary"
+                onPress={handleSaveEdit}
+                style={{ flex: 2 }}
+              />
+            </View>
           </View>
         </BottomSheetModal>
       </View>
@@ -447,23 +851,23 @@ export const TradingScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    marginBottom: 16,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
   menuBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -472,9 +876,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -482,32 +886,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollListPadding: {
-    paddingBottom: 60,
+    paddingBottom: 110,
   },
-  statsRow: {
+  statCardsRow: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 14,
   },
   chartCard: {
     padding: 16,
-    marginBottom: 18,
+    marginBottom: 16,
   },
-  cardTitle: {
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  chartTitle: {
     fontWeight: '700',
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontWeight: '700',
+  },
+  viewAllText: {
+    fontSize: 13,
+  },
+  compactTradeCard: {
     marginBottom: 10,
-  },
-  tradesList: {
-    gap: 10,
-  },
-  tradeCard: {
     padding: 14,
-    marginBottom: 8,
   },
   tradeRow: {
     flexDirection: 'row',
@@ -515,42 +928,80 @@ const styles = StyleSheet.create({
   },
   dirBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 6,
+    marginRight: 12,
+  },
+  dirBadgeLarge: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   tradeDetails: {
     flex: 1,
-    marginHorizontal: 10,
   },
   pnlText: {
-    fontWeight: '700',
+    fontWeight: '800',
   },
   modalForm: {
-    paddingTop: 8,
+    paddingBottom: 24,
   },
   dirPicker: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   dirBtn: {
     flex: 1,
     paddingVertical: 10,
-    alignItems: 'center',
     borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   formLabel: {
     marginBottom: 6,
-    marginTop: 10,
+    letterSpacing: 0.5,
   },
   modalInput: {
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 12,
+    height: 48,
     borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    marginBottom: 14,
   },
-  row: {
+  rowInputs: {
     flexDirection: 'row',
   },
+  detailContainer: {
+    paddingBottom: 20,
+  },
+  tradeDetailTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  tradeMetricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  metricCell: {
+    width: '50%',
+    paddingVertical: 8,
+  },
+  tradeNotesBox: {
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 20,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+  },
+  detailActionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
 });
-
