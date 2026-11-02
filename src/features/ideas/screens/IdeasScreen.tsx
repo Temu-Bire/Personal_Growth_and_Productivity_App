@@ -12,7 +12,6 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
-import { Chip } from '../../../components/ui/Chip';
 import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { BottomSheetModal } from '../../../components/ui/BottomSheetModal';
@@ -20,7 +19,7 @@ import { useTheme } from '../../../hooks/useTheme';
 import { IdeasRepository } from '../ideas.repository';
 import { Idea } from '../ideas.types';
 
-const CATEGORIES = ['All', 'App', 'Career', 'Creative', 'Business', 'Personal'];
+const CATEGORIES = ['All', 'App', 'Career', 'Creative', 'Business', 'Personal', 'General'];
 
 export const IdeasScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -29,6 +28,7 @@ export const IdeasScreen: React.FC = () => {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
 
   // Modal State
   const [modalVisible, setModalVisible] = useState(false);
@@ -36,6 +36,7 @@ export const IdeasScreen: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('General');
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [tagsInput, setTagsInput] = useState('');
   const [isPinned, setIsPinned] = useState(false);
 
@@ -62,6 +63,7 @@ export const IdeasScreen: React.FC = () => {
     setTitle('');
     setDescription('');
     setCategory('General');
+    setIsCategoryDropdownOpen(false);
     setTagsInput('');
     setIsPinned(false);
     setModalVisible(true);
@@ -72,6 +74,7 @@ export const IdeasScreen: React.FC = () => {
     setTitle(idea.title);
     setDescription(idea.description || '');
     setCategory(idea.category || 'General');
+    setIsCategoryDropdownOpen(false);
     const parsedTags: string[] = idea.tags ? JSON.parse(idea.tags) : [];
     setTagsInput(parsedTags.join(', '));
     setIsPinned(idea.is_pinned === 1);
@@ -156,56 +159,97 @@ export const IdeasScreen: React.FC = () => {
           </View>
         </View>
 
+        {/* Top button changed to 'New' */}
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={handleOpenAdd}
           style={[styles.addBtn, { backgroundColor: colors.primary }]}
           accessibilityRole="button"
-          accessibilityLabel="Capture Idea"
+          accessibilityLabel="New Idea"
         >
           <Ionicons name="add" size={22} color="#FFFFFF" />
-          <Text style={[typography.button, { color: '#FFFFFF', marginLeft: 4 }]}>Capture</Text>
+          <Text style={[typography.button, { color: '#FFFFFF', marginLeft: 4 }]}>New</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Search Bar */}
-      <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Ionicons name="search-outline" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
-        <TextInput
-          style={[styles.searchInput, typography.body, { color: colors.textPrimary }]}
-          placeholder="Search ideas or tags..."
-          placeholderTextColor={colors.textMuted}
-          value={search}
-          onChangeText={(text) => {
-            setSearch(text);
-          }}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-          </TouchableOpacity>
-        )}
+      {/* Search and Category Filter Row */}
+      <View style={styles.searchAndFilterRow}>
+        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border, flex: 1 }]}>
+          <Ionicons name="search-outline" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
+          <TextInput
+            style={[styles.searchInput, typography.body, { color: colors.textPrimary }]}
+            placeholder="Search ideas or tags..."
+            placeholderTextColor={colors.textMuted}
+            value={search}
+            onChangeText={(text) => {
+              setSearch(text);
+            }}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Category Dropdown Filter Button */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+          style={[
+            styles.filterDropdownBtn,
+            {
+              backgroundColor: colors.surface,
+              borderColor: isFilterDropdownOpen ? colors.primary : colors.border,
+            },
+          ]}
+        >
+          <Ionicons name="filter-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+          <Text style={[typography.captionBold, { color: colors.textPrimary }]}>
+            {selectedCategory}
+          </Text>
+          <Ionicons
+            name={isFilterDropdownOpen ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.textSecondary}
+            style={{ marginLeft: 6 }}
+          />
+        </TouchableOpacity>
       </View>
 
-      {/* Category Chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoriesScroll}
-      >
-        {CATEGORIES.map((cat) => {
-          const isSelected = selectedCategory === cat;
-          return (
-            <Chip
+      {/* Filter Dropdown Menu (when open) */}
+      {isFilterDropdownOpen && (
+        <View style={[styles.filterDropdownMenu, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {CATEGORIES.map((cat) => (
+            <TouchableOpacity
               key={cat}
-              label={cat}
-              selected={isSelected}
-              onPress={() => setSelectedCategory(cat)}
-              style={styles.categoryChip}
-            />
-          );
-        })}
-      </ScrollView>
+              style={[
+                styles.dropdownItem,
+                selectedCategory === cat && { backgroundColor: colors.accentMint },
+              ]}
+              onPress={() => {
+                setSelectedCategory(cat);
+                setIsFilterDropdownOpen(false);
+              }}
+            >
+              <Text
+                style={[
+                  typography.body,
+                  {
+                    color: selectedCategory === cat ? colors.primary : colors.textPrimary,
+                    fontWeight: selectedCategory === cat ? '700' : '400',
+                  },
+                ]}
+              >
+                {cat}
+              </Text>
+              {selectedCategory === cat && (
+                <Ionicons name="checkmark" size={16} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* Ideas List */}
       <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
@@ -213,8 +257,8 @@ export const IdeasScreen: React.FC = () => {
           <EmptyState
             icon="bulb-outline"
             title="No ideas yet"
-            description="Got a sudden spark or thought? Tap Capture to jot it down!"
-            actionTitle="Capture an Idea"
+            description="Got a sudden spark or thought? Tap New to jot it down!"
+            actionTitle="New Idea"
             onAction={handleOpenAdd}
           />
         ) : (
@@ -316,7 +360,7 @@ export const IdeasScreen: React.FC = () => {
       <BottomSheetModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        title={editingIdea ? 'Edit Idea' : 'Capture New Idea'}
+        title={editingIdea ? 'Edit Idea' : 'New Idea'}
       >
         <View style={styles.modalContent}>
           <Text style={[styles.inputLabel, typography.captionBold, { color: colors.textSecondary }]}>
@@ -348,20 +392,66 @@ export const IdeasScreen: React.FC = () => {
             numberOfLines={4}
           />
 
+          {/* Category Dropdown (replacing column list) */}
           <Text style={[styles.inputLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 12 }]}>
             CATEGORY
           </Text>
-          <View style={styles.categorySelectRow}>
-            {CATEGORIES.filter((c) => c !== 'All').map((c) => (
-              <Chip
-                key={c}
-                label={c}
-                selected={category.toLowerCase() === c.toLowerCase()}
-                onPress={() => setCategory(c)}
-                style={{ marginRight: 6, marginBottom: 6 }}
-              />
-            ))}
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+            style={[
+              styles.categoryDropdownTrigger,
+              {
+                backgroundColor: colors.surface,
+                borderColor: isCategoryDropdownOpen ? colors.primary : colors.border,
+              },
+            ]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.categoryColorDot, { backgroundColor: colors.primary }]} />
+              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                {category}
+              </Text>
+            </View>
+            <Ionicons
+              name={isCategoryDropdownOpen ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          {isCategoryDropdownOpen && (
+            <View style={[styles.categoryDropdownMenu, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              {CATEGORIES.filter((c) => c !== 'All').map((c) => (
+                <TouchableOpacity
+                  key={c}
+                  style={[
+                    styles.dropdownItem,
+                    category.toLowerCase() === c.toLowerCase() && { backgroundColor: colors.accentMint },
+                  ]}
+                  onPress={() => {
+                    setCategory(c);
+                    setIsCategoryDropdownOpen(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      typography.body,
+                      {
+                        color: category.toLowerCase() === c.toLowerCase() ? colors.primary : colors.textPrimary,
+                        fontWeight: category.toLowerCase() === c.toLowerCase() ? '700' : '400',
+                      },
+                    ]}
+                  >
+                    {c}
+                  </Text>
+                  {category.toLowerCase() === c.toLowerCase() && (
+                    <Ionicons name="checkmark" size={16} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           <Text style={[styles.inputLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 12 }]}>
             TAGS (comma-separated)
@@ -397,7 +487,7 @@ export const IdeasScreen: React.FC = () => {
               style={{ flex: 1, marginRight: 8 }}
             />
             <Button
-              title={editingIdea ? 'Save Changes' : 'Capture Idea'}
+              title={editingIdea ? 'Save Changes' : 'New Idea'}
               variant="primary"
               onPress={handleSave}
               style={{ flex: 2 }}
@@ -440,9 +530,15 @@ const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
+  },
+  searchAndFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
   },
   searchBox: {
     flexDirection: 'row',
@@ -451,19 +547,38 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginBottom: 12,
   },
   searchInput: {
     flex: 1,
     padding: 0,
   },
-  categoriesScroll: {
+  filterDropdownBtn: {
     flexDirection: 'row',
-    paddingBottom: 12,
-    gap: 8,
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  categoryChip: {
-    marginRight: 4,
+  filterDropdownMenu: {
+    borderWidth: 1,
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
   },
   list: {
     flex: 1,
@@ -541,9 +656,26 @@ const styles = StyleSheet.create({
     height: 90,
     textAlignVertical: 'top',
   },
-  categorySelectRow: {
+  categoryDropdownTrigger: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  categoryColorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
+  },
+  categoryDropdownMenu: {
+    borderWidth: 1,
+    borderRadius: 12,
+    marginTop: 6,
+    overflow: 'hidden',
   },
   pinCheckbox: {
     flexDirection: 'row',
