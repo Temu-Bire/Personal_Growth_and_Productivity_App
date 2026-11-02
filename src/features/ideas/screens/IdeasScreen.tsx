@@ -1,20 +1,20 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-} from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Screen } from '../../../components/layout/Screen';
-import { Card } from '../../../components/ui/Card';
-import { Button } from '../../../components/ui/Button';
-import { EmptyState } from '../../../components/ui/EmptyState';
 import { BottomSheetModal } from '../../../components/ui/BottomSheetModal';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { EmptyState } from '../../../components/ui/EmptyState';
 import { useTheme } from '../../../hooks/useTheme';
 import { IdeasRepository } from '../ideas.repository';
 import { Idea } from '../ideas.types';
@@ -154,7 +154,7 @@ export const IdeasScreen: React.FC = () => {
           <View style={{ marginLeft: 12 }}>
             <Text style={[styles.title, typography.h1, { color: colors.textPrimary }]}>Ideas</Text>
             <Text style={[typography.caption, { color: colors.textSecondary }]}>
-              Capture thoughts, brainstorm & create
+              brainstorm & create
             </Text>
           </View>
         </View>
