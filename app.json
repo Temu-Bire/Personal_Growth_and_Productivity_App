@@ -28,7 +28,9 @@
       "expo-sqlite",
       "expo-sharing",
       "expo-document-picker",
-      "expo-local-authentication"
+      "expo-local-authentication",
+      "expo-audio",
+      "expo-asset"
     ]
   }
 }
