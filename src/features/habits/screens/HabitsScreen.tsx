@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -27,8 +27,10 @@ export const HabitsScreen: React.FC = () => {
 
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [selectedHabitDetails, setSelectedHabitDetails] = useState<(Habit & { totalCompletedDays?: number; completionHistory?: any[] }) | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
-  // Form
+  // Form State
   const [name, setName] = useState('');
   const [targetCount, setTargetCount] = useState('1');
   const [unit, setUnit] = useState('times');
@@ -38,7 +40,13 @@ export const HabitsScreen: React.FC = () => {
   const loadHabits = useCallback(() => {
     const list = HabitsRepository.getAllWithProgress(todayStr);
     setHabits(list);
-  }, [todayStr]);
+
+    // If detail is open, refresh detail too
+    if (selectedHabitDetails) {
+      const refreshed = HabitsRepository.getHabitDetails(selectedHabitDetails.id, todayStr);
+      setSelectedHabitDetails(refreshed);
+    }
+  }, [todayStr, selectedHabitDetails?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,7 +59,30 @@ export const HabitsScreen: React.FC = () => {
     loadHabits();
   };
 
-  const handleCreateHabit = () => {
+  const handleOpenDetail = (habit: Habit) => {
+    const details = HabitsRepository.getHabitDetails(habit.id, todayStr);
+    setSelectedHabitDetails(details || habit);
+  };
+
+  const handleOpenAdd = () => {
+    setName('');
+    setTargetCount('1');
+    setUnit('times');
+    setFrequency('daily');
+    setColor('#1E8E4E');
+    setIsAddOpen(true);
+  };
+
+  const handleOpenEdit = (habit: Habit) => {
+    setName(habit.name);
+    setTargetCount(String(habit.target_count || 1));
+    setUnit(habit.unit || 'times');
+    setFrequency(habit.frequency || 'daily');
+    setColor(habit.color || '#1E8E4E');
+    setIsEditOpen(true);
+  };
+
+  const handleSaveAdd = () => {
     if (!name.trim()) {
       Alert.alert('Required', 'Please enter habit name.');
       return;
@@ -66,14 +97,51 @@ export const HabitsScreen: React.FC = () => {
       color,
     });
 
-    setName('');
     setIsAddOpen(false);
     loadHabits();
   };
 
+  const handleSaveEdit = () => {
+    if (!selectedHabitDetails || !name.trim()) {
+      Alert.alert('Required', 'Please enter habit name.');
+      return;
+    }
+
+    HabitsRepository.update(selectedHabitDetails.id, {
+      name: name.trim(),
+      targetCount: parseInt(targetCount, 10) || 1,
+      unit: unit || 'times',
+      frequency,
+      color,
+    });
+
+    setIsEditOpen(false);
+    loadHabits();
+  };
+
+  const handleDeleteHabit = (habitId: string, habitName: string) => {
+    Alert.alert(
+      'Delete Habit',
+      `Are you sure you want to delete "${habitName}"? All its logs and streak history will be permanently removed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            HabitsRepository.delete(habitId);
+            setSelectedHabitDetails(null);
+            setIsEditOpen(false);
+            loadHabits();
+          },
+        },
+      ]
+    );
+  };
+
   // Streak calculations across all habits
   const topStreak = habits.length > 0 ? Math.max(...habits.map((h) => h.streak || 0), 12) : 12;
-  const combined7Days = [1, 1, 0, 1, 1, 1, 1]; // Visual consistency with mockup
+  const combined7Days = [1, 1, 0, 1, 1, 1, 1];
 
   return (
     <Screen backgroundColor={colors.background}>
@@ -95,7 +163,7 @@ export const HabitsScreen: React.FC = () => {
             </Text>
           </View>
           <TouchableOpacity
-            onPress={() => setIsAddOpen(true)}
+            onPress={handleOpenAdd}
             style={[styles.addIconBtn, { backgroundColor: colors.accentMint }]}
             accessibilityRole="button"
             accessibilityLabel="Add Habit"
@@ -140,65 +208,74 @@ export const HabitsScreen: React.FC = () => {
               title="No habits yet"
               description="Build daily discipline and positive routines."
               actionTitle="+ Add Habit"
-              onAction={() => setIsAddOpen(true)}
+              onAction={handleOpenAdd}
             />
           ) : (
             habits.map((habit) => {
               const isDone = (habit.todayCount || 0) >= habit.target_count;
               return (
-                <Card key={habit.id} style={styles.habitCard}>
-                  <View style={styles.habitRow}>
-                    <View style={[styles.iconBox, { backgroundColor: colors.accentMint }]}>
-                      <Ionicons
-                        name={(habit.icon as any) || 'flash-outline'}
-                        size={22}
-                        color={habit.color || colors.primary}
-                      />
-                    </View>
-
-                    <View style={styles.habitDetails}>
-                      <View style={styles.titleLine}>
-                        <Text style={[styles.habitName, typography.bodyBold, { color: colors.textPrimary }]}>
-                          {habit.name}
-                        </Text>
-                        <Text style={[typography.captionBold, { color: isDone ? colors.primary : colors.textMuted }]}>
-                          {habit.progressPercent}%
-                        </Text>
-                      </View>
-
-                      <View style={styles.progressRow}>
-                        <ProgressBar
-                          progress={habit.progressPercent || 0}
-                          height={6}
+                <TouchableOpacity
+                  key={habit.id}
+                  activeOpacity={0.8}
+                  onPress={() => handleOpenDetail(habit)}
+                >
+                  <Card style={styles.habitCard}>
+                    <View style={styles.habitRow}>
+                      <View style={[styles.iconBox, { backgroundColor: colors.accentMint }]}>
+                        <Ionicons
+                          name={(habit.icon as any) || 'flash-outline'}
+                          size={22}
                           color={habit.color || colors.primary}
-                          style={{ flex: 1, marginRight: 12 }}
                         />
-                        <Text style={[typography.caption, { color: colors.textMuted }]}>
-                          {habit.todayCount || 0} / {habit.target_count} {habit.unit}
-                        </Text>
                       </View>
-                    </View>
 
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => handleToggleHabit(habit.id)}
-                      style={[
-                        styles.checkBtn,
-                        {
-                          backgroundColor: isDone ? colors.primary : 'transparent',
-                          borderColor: isDone ? colors.primary : colors.border,
-                        },
-                      ]}
-                      accessibilityRole="button"
-                    >
-                      <Ionicons
-                        name={isDone ? 'checkmark' : 'add'}
-                        size={18}
-                        color={isDone ? '#FFFFFF' : colors.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </Card>
+                      <View style={styles.habitDetails}>
+                        <View style={styles.titleLine}>
+                          <Text style={[styles.habitName, typography.bodyBold, { color: colors.textPrimary }]}>
+                            {habit.name}
+                          </Text>
+                          <Text style={[typography.captionBold, { color: isDone ? colors.primary : colors.textMuted }]}>
+                            {habit.progressPercent}%
+                          </Text>
+                        </View>
+
+                        <View style={styles.progressRow}>
+                          <ProgressBar
+                            progress={habit.progressPercent || 0}
+                            height={6}
+                            color={habit.color || colors.primary}
+                            style={{ flex: 1, marginRight: 12 }}
+                          />
+                          <Text style={[typography.caption, { color: colors.textMuted }]}>
+                            {habit.todayCount || 0} / {habit.target_count} {habit.unit}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleToggleHabit(habit.id);
+                        }}
+                        style={[
+                          styles.checkBtn,
+                          {
+                            backgroundColor: isDone ? colors.primary : 'transparent',
+                            borderColor: isDone ? colors.primary : colors.border,
+                          },
+                        ]}
+                        accessibilityRole="button"
+                      >
+                        <Ionicons
+                          name={isDone ? 'checkmark' : 'add'}
+                          size={18}
+                          color={isDone ? '#FFFFFF' : colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </Card>
+                </TouchableOpacity>
               );
             })
           )}
@@ -213,7 +290,7 @@ export const HabitsScreen: React.FC = () => {
         >
           <View style={styles.modalForm}>
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Habit Name
+              Habit Name *
             </Text>
             <TextInput
               value={name}
@@ -251,7 +328,7 @@ export const HabitsScreen: React.FC = () => {
                 <TextInput
                   value={unit}
                   onChangeText={setUnit}
-                  placeholder="times / pages / glasses"
+                  placeholder="times, pages, mins"
                   placeholderTextColor={colors.textMuted}
                   style={[
                     styles.modalInput,
@@ -261,44 +338,265 @@ export const HabitsScreen: React.FC = () => {
               </View>
             </View>
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 12 }]}>
               Frequency
             </Text>
-            <View style={styles.freqRow}>
-              {(['daily', 'weekly'] as const).map((f) => {
-                const isSelected = frequency === f;
-                return (
-                  <TouchableOpacity
-                    key={f}
-                    onPress={() => setFrequency(f)}
-                    style={[
-                      styles.freqBtn,
-                      {
-                        backgroundColor: isSelected ? colors.primary : colors.inputBg,
-                        borderColor: isSelected ? colors.primary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        typography.captionBold,
-                        { color: isSelected ? '#FFFFFF' : colors.textSecondary, textTransform: 'capitalize' },
-                      ]}
-                    >
-                      {f}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+            <View style={styles.frequencyRow}>
+              <TouchableOpacity
+                onPress={() => setFrequency('daily')}
+                style={[
+                  styles.freqBtn,
+                  frequency === 'daily' && { backgroundColor: colors.accentMint, borderColor: colors.primary },
+                  { borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    typography.captionBold,
+                    { color: frequency === 'daily' ? colors.primary : colors.textSecondary },
+                  ]}
+                >
+                  Daily
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setFrequency('weekly')}
+                style={[
+                  styles.freqBtn,
+                  frequency === 'weekly' && { backgroundColor: colors.accentMint, borderColor: colors.primary },
+                  { borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    typography.captionBold,
+                    { color: frequency === 'weekly' ? colors.primary : colors.textSecondary },
+                  ]}
+                >
+                  Weekly
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <Button
-              title="Save Habit"
-              onPress={handleCreateHabit}
-              variant="primary"
-              size="lg"
+              title="Create Habit"
+              onPress={handleSaveAdd}
               style={{ marginTop: 24 }}
             />
+          </View>
+        </BottomSheetModal>
+
+        {/* Habit Details Modal (Requirement 2) */}
+        {selectedHabitDetails && (
+          <BottomSheetModal
+            visible={!!selectedHabitDetails && !isEditOpen}
+            onClose={() => setSelectedHabitDetails(null)}
+            title="Habit Details"
+          >
+            <View style={styles.detailContent}>
+              <View style={styles.detailHeaderRow}>
+                <View style={[styles.detailIcon, { backgroundColor: colors.accentMint }]}>
+                  <Ionicons
+                    name={(selectedHabitDetails.icon as any) || 'flash-outline'}
+                    size={28}
+                    color={selectedHabitDetails.color || colors.primary}
+                  />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[typography.h2, { color: colors.textPrimary, fontWeight: '700' }]}>
+                    {selectedHabitDetails.name}
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
+                    {selectedHabitDetails.frequency === 'daily' ? 'Daily Routine' : 'Weekly Goal'} · Target:{' '}
+                    {selectedHabitDetails.target_count} {selectedHabitDetails.unit}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Stats Cards Row */}
+              <View style={styles.detailStatsRow}>
+                <Card style={[styles.detailStatBox, { backgroundColor: colors.orangeSoft }]}>
+                  <Text style={{ fontSize: 20 }}>🔥</Text>
+                  <Text style={[typography.h3, { color: '#92400E', fontWeight: '800', marginTop: 4 }]}>
+                    {selectedHabitDetails.streak || 0}
+                  </Text>
+                  <Text style={[typography.caption, { color: '#B45309' }]}>Day Streak</Text>
+                </Card>
+
+                <Card style={[styles.detailStatBox, { backgroundColor: colors.accentMint }]}>
+                  <Ionicons name="trophy-outline" size={20} color={colors.primary} />
+                  <Text style={[typography.h3, { color: colors.deepGreen, fontWeight: '800', marginTop: 4 }]}>
+                    {selectedHabitDetails.totalCompletedDays || 0}
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.deepGreen }]}>Total Days</Text>
+                </Card>
+
+                <Card style={[styles.detailStatBox, { backgroundColor: colors.purpleSoft }]}>
+                  <Ionicons name="pie-chart-outline" size={20} color={colors.purple} />
+                  <Text style={[typography.h3, { color: colors.purple, fontWeight: '800', marginTop: 4 }]}>
+                    {selectedHabitDetails.progressPercent || 0}%
+                  </Text>
+                  <Text style={[typography.caption, { color: colors.purple }]}>Today</Text>
+                </Card>
+              </View>
+
+              {/* Schedule & History info */}
+              <View style={[styles.infoSection, { borderColor: colors.border }]}>
+                <View style={styles.infoRow}>
+                  <Text style={[typography.body, { color: colors.textSecondary }]}>Frequency & Schedule</Text>
+                  <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                    {selectedHabitDetails.frequency.toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={[typography.body, { color: colors.textSecondary }]}>Current Progress</Text>
+                  <Text style={[typography.bodyBold, { color: colors.primary }]}>
+                    {selectedHabitDetails.todayCount || 0} / {selectedHabitDetails.target_count} {selectedHabitDetails.unit}
+                  </Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={[typography.body, { color: colors.textSecondary }]}>Completion Status</Text>
+                  <Text
+                    style={[
+                      typography.bodyBold,
+                      {
+                        color:
+                          (selectedHabitDetails.todayCount || 0) >= selectedHabitDetails.target_count
+                            ? colors.primary
+                            : colors.orange,
+                      },
+                    ]}
+                  >
+                    {(selectedHabitDetails.todayCount || 0) >= selectedHabitDetails.target_count
+                      ? 'Completed Today ✓'
+                      : 'In Progress'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action Buttons: Edit and Delete */}
+              <View style={styles.detailActionButtons}>
+                <Button
+                  title="Edit Habit"
+                  variant="primary"
+                  onPress={() => handleOpenEdit(selectedHabitDetails)}
+                  style={{ flex: 1, marginRight: 8 }}
+                />
+                <Button
+                  title="Delete Habit"
+                  variant="ghost"
+                  onPress={() => handleDeleteHabit(selectedHabitDetails.id, selectedHabitDetails.name)}
+                  style={{ flex: 1, marginLeft: 8 }}
+                />
+              </View>
+            </View>
+          </BottomSheetModal>
+        )}
+
+        {/* Edit Habit Modal */}
+        <BottomSheetModal
+          visible={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          title="Edit Habit"
+        >
+          <View style={styles.modalForm}>
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              Habit Name *
+            </Text>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              style={[
+                styles.modalInput,
+                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+              ]}
+            />
+
+            <View style={styles.row}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+                  Target Count
+                </Text>
+                <TextInput
+                  value={targetCount}
+                  onChangeText={setTargetCount}
+                  keyboardType="numeric"
+                  style={[
+                    styles.modalInput,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+                  ]}
+                />
+              </View>
+
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+                  Unit
+                </Text>
+                <TextInput
+                  value={unit}
+                  onChangeText={setUnit}
+                  style={[
+                    styles.modalInput,
+                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 12 }]}>
+              Frequency
+            </Text>
+            <View style={styles.frequencyRow}>
+              <TouchableOpacity
+                onPress={() => setFrequency('daily')}
+                style={[
+                  styles.freqBtn,
+                  frequency === 'daily' && { backgroundColor: colors.accentMint, borderColor: colors.primary },
+                  { borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    typography.captionBold,
+                    { color: frequency === 'daily' ? colors.primary : colors.textSecondary },
+                  ]}
+                >
+                  Daily
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setFrequency('weekly')}
+                style={[
+                  styles.freqBtn,
+                  frequency === 'weekly' && { backgroundColor: colors.accentMint, borderColor: colors.primary },
+                  { borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    typography.captionBold,
+                    { color: frequency === 'weekly' ? colors.primary : colors.textSecondary },
+                  ]}
+                >
+                  Weekly
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', marginTop: 24, gap: 10 }}>
+              <Button
+                title="Cancel"
+                variant="ghost"
+                onPress={() => setIsEditOpen(false)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Save Changes"
+                variant="primary"
+                onPress={handleSaveEdit}
+                style={{ flex: 2 }}
+              />
+            </View>
           </View>
         </BottomSheetModal>
       </View>
@@ -309,23 +607,23 @@ export const HabitsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    marginBottom: 16,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
   menuBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -334,9 +632,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -345,8 +643,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
+    marginBottom: 20,
     borderWidth: 1,
-    marginBottom: 16,
   },
   streakInfo: {
     flex: 1,
@@ -356,8 +654,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   miniChart: {
-    width: 80,
-    height: 44,
+    marginLeft: 12,
   },
   list: {
     flex: 1,
@@ -366,8 +663,8 @@ const styles = StyleSheet.create({
     paddingBottom: 110,
   },
   habitCard: {
+    marginBottom: 12,
     padding: 14,
-    marginBottom: 10,
   },
   habitRow: {
     flexDirection: 'row',
@@ -379,10 +676,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
   habitDetails: {
     flex: 1,
-    marginHorizontal: 12,
   },
   titleLine: {
     flexDirection: 'row',
@@ -391,7 +688,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   habitName: {
-    fontWeight: '600',
+    flex: 1,
+    marginRight: 8,
   },
   progressRow: {
     flexDirection: 'row',
@@ -404,34 +702,78 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 12,
   },
   modalForm: {
-    paddingTop: 8,
+    paddingBottom: 24,
   },
   formLabel: {
     marginBottom: 6,
-    marginTop: 12,
+    letterSpacing: 0.5,
   },
   modalInput: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
+    height: 48,
     borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    marginBottom: 14,
   },
   row: {
     flexDirection: 'row',
   },
-  freqRow: {
+  frequencyRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
+    gap: 12,
   },
   freqBtn: {
     flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 12,
+    height: 42,
     borderWidth: 1,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailContent: {
+    paddingBottom: 24,
+  },
+  detailHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  detailIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailStatsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  detailStatBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  infoSection: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    paddingVertical: 14,
+    marginBottom: 24,
+    gap: 10,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  detailActionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
-
