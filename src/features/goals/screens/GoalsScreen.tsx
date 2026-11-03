@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,15 +17,25 @@ import { SegmentedTabs } from '../../../components/ui/SegmentedTabs';
 import { BottomSheetModal } from '../../../components/ui/BottomSheetModal';
 import { Button } from '../../../components/ui/Button';
 import { Checkbox } from '../../../components/ui/Checkbox';
+import { Chip } from '../../../components/ui/Chip';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useTheme } from '../../../hooks/useTheme';
 import { GoalsRepository, Goal, GoalMilestone } from '../goals.repository';
+import {
+  GOAL_CATEGORIES,
+  GoalCategory,
+  GOAL_CATEGORY_CONFIG,
+  getGoalCategoryConfig,
+} from '../goals.constants';
+
+const FILTER_CATEGORIES = ['All', ...GOAL_CATEGORIES] as const;
 
 export const GoalsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
 
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [goals, setGoals] = useState<Goal[]>([]);
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
   const [milestonesMap, setMilestonesMap] = useState<Record<string, GoalMilestone[]>>({});
@@ -34,7 +44,7 @@ export const GoalsScreen: React.FC = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('2026-12-31');
-  const [category, setCategory] = useState('General');
+  const [category, setCategory] = useState<GoalCategory>('Career');
   const [initialMilestones, setInitialMilestones] = useState('');
 
   // Edit Modal State
@@ -42,7 +52,7 @@ export const GoalsScreen: React.FC = () => {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
-  const [editCategory, setEditCategory] = useState('');
+  const [editCategory, setEditCategory] = useState<GoalCategory>('Career');
 
   const loadGoals = useCallback(() => {
     const list = GoalsRepository.getAllWithProgress(activeTab === 'completed' ? 1 : 0);
@@ -60,6 +70,14 @@ export const GoalsScreen: React.FC = () => {
       loadGoals();
     }, [loadGoals])
   );
+
+  // Filtered goals by category
+  const filteredGoals = useMemo(() => {
+    if (selectedCategory === 'All') return goals;
+    return goals.filter(
+      (g) => (g.category || 'Others').toLowerCase() === selectedCategory.toLowerCase()
+    );
+  }, [goals, selectedCategory]);
 
   const handleToggleMilestone = (milestoneId: string) => {
     GoalsRepository.toggleMilestone(milestoneId);
@@ -86,6 +104,7 @@ export const GoalsScreen: React.FC = () => {
 
     setTitle('');
     setInitialMilestones('');
+    setCategory('Career');
     setIsAddOpen(false);
     loadGoals();
   };
@@ -94,7 +113,8 @@ export const GoalsScreen: React.FC = () => {
     setEditingGoal(goal);
     setEditTitle(goal.title);
     setEditDueDate(goal.due_date);
-    setEditCategory(goal.category || 'General');
+    const catConfig = getGoalCategoryConfig(goal.category);
+    setEditCategory(catConfig.name);
     setIsEditOpen(true);
   };
 
@@ -131,11 +151,6 @@ export const GoalsScreen: React.FC = () => {
         },
       ]
     );
-  };
-
-  const handleMarkComplete = (goalId: string) => {
-    GoalsRepository.markComplete(goalId);
-    loadGoals();
   };
 
   const toggleExpand = (goalId: string) => {
@@ -179,8 +194,30 @@ export const GoalsScreen: React.FC = () => {
           ]}
           activeTab={activeTab}
           onTabChange={(tab) => setActiveTab(tab)}
-          style={{ marginBottom: 16 }}
+          style={{ marginBottom: 12 }}
         />
+
+        {/* Category Filter Horizontal Scroll */}
+        <View style={styles.filterWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScroll}
+          >
+            {FILTER_CATEGORIES.map((cat) => {
+              const isSelected = selectedCategory === cat;
+              return (
+                <Chip
+                  key={cat}
+                  label={cat}
+                  selected={isSelected}
+                  onPress={() => setSelectedCategory(cat)}
+                  style={styles.filterChip}
+                />
+              );
+            })}
+          </ScrollView>
+        </View>
 
         {/* Goals List */}
         <ScrollView
@@ -188,12 +225,20 @@ export const GoalsScreen: React.FC = () => {
           contentContainerStyle={styles.scrollListPadding}
           showsVerticalScrollIndicator={false}
         >
-          {goals.length === 0 ? (
+          {filteredGoals.length === 0 ? (
             <EmptyState
               icon="flag-outline"
-              title={activeTab === 'active' ? 'No active goals' : 'No completed goals'}
+              title={
+                selectedCategory !== 'All'
+                  ? `No ${selectedCategory} goals`
+                  : activeTab === 'active'
+                  ? 'No active goals'
+                  : 'No completed goals'
+              }
               description={
-                activeTab === 'active'
+                selectedCategory !== 'All'
+                  ? `There are no ${selectedCategory.toLowerCase()} goals in ${activeTab}. Tap '+' to create one.`
+                  : activeTab === 'active'
                   ? 'Set meaningful milestones and reach your ambitions.'
                   : 'Completed goals will appear here once marked done.'
               }
@@ -201,9 +246,10 @@ export const GoalsScreen: React.FC = () => {
               onAction={activeTab === 'active' ? () => setIsAddOpen(true) : undefined}
             />
           ) : (
-            goals.map((goal) => {
+            filteredGoals.map((goal) => {
               const isExpanded = expandedGoalId === goal.id;
               const milestones = milestonesMap[goal.id] || [];
+              const catCfg = getGoalCategoryConfig(goal.category);
 
               return (
                 <Card key={goal.id} style={styles.goalCard}>
@@ -213,11 +259,26 @@ export const GoalsScreen: React.FC = () => {
                   >
                     <View style={styles.goalHeader}>
                       <View style={{ flex: 1, marginRight: 10 }}>
+                        {/* Category Badge */}
+                        <View style={styles.badgeRow}>
+                          <View style={[styles.catBadge, { backgroundColor: catCfg.bg }]}>
+                            <Ionicons
+                              name={catCfg.icon}
+                              size={12}
+                              color={catCfg.color}
+                              style={{ marginRight: 4 }}
+                            />
+                            <Text style={[typography.captionBold, { color: catCfg.color, fontSize: 11 }]}>
+                              {catCfg.name}
+                            </Text>
+                          </View>
+                        </View>
+
                         <Text style={[styles.goalTitle, typography.h2, { color: colors.textPrimary }]}>
                           {goal.title}
                         </Text>
                         <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
-                          Due: {goal.due_date} · {goal.category || 'General'}
+                          Due: {goal.due_date}
                         </Text>
                       </View>
                       <Text style={[typography.h2, { color: colors.primary, fontWeight: '800' }]}>
@@ -279,12 +340,11 @@ export const GoalsScreen: React.FC = () => {
                             <Checkbox
                               checked={m.is_completed === 1}
                               onToggle={() => handleToggleMilestone(m.id)}
-                              size={18}
                             />
                             <Text
                               style={[
                                 styles.milestoneTitle,
-                                typography.body,
+                                typography.bodyMedium,
                                 {
                                   color: m.is_completed === 1 ? colors.textMuted : colors.textPrimary,
                                   textDecorationLine: m.is_completed === 1 ? 'line-through' : 'none',
@@ -296,32 +356,21 @@ export const GoalsScreen: React.FC = () => {
                           </View>
                         ))
                       )}
-
-                      {activeTab === 'active' && (
-                        <View style={{ marginTop: 12 }}>
-                          <Button
-                            title="Mark Goal as Completed ✓"
-                            variant="secondary"
-                            onPress={() => handleMarkComplete(goal.id)}
-                          />
-                        </View>
-                      )}
                     </View>
                   )}
                 </Card>
               );
             })
           )}
-          <View style={{ height: 40 }} />
         </ScrollView>
 
         {/* Add Goal Modal */}
         <BottomSheetModal
           visible={isAddOpen}
           onClose={() => setIsAddOpen(false)}
-          title="Create New Goal"
+          title="Add New Goal"
         >
-          <View style={styles.modalForm}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalForm}>
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
               Goal Title *
             </Text>
@@ -353,16 +402,41 @@ export const GoalsScreen: React.FC = () => {
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
               Category
             </Text>
-            <TextInput
-              value={category}
-              onChangeText={setCategory}
-              placeholder="General, Career, Health"
-              placeholderTextColor={colors.textMuted}
-              style={[
-                styles.modalInput,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-              ]}
-            />
+            <View style={styles.catSelectionGrid}>
+              {GOAL_CATEGORIES.map((cat) => {
+                const isSelected = category === cat;
+                const cfg = GOAL_CATEGORY_CONFIG[cat];
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    activeOpacity={0.7}
+                    onPress={() => setCategory(cat)}
+                    style={[
+                      styles.catChoiceBtn,
+                      {
+                        backgroundColor: isSelected ? cfg.color : colors.inputBg,
+                        borderColor: isSelected ? cfg.color : colors.border,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={cfg.icon}
+                      size={14}
+                      color={isSelected ? '#FFFFFF' : cfg.color}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={[
+                        typography.captionBold,
+                        { color: isSelected ? '#FFFFFF' : colors.textPrimary },
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
               Milestones (one per line)
@@ -386,7 +460,7 @@ export const GoalsScreen: React.FC = () => {
               onPress={handleCreateGoal}
               style={{ marginTop: 16 }}
             />
-          </View>
+          </ScrollView>
         </BottomSheetModal>
 
         {/* Edit Goal Modal */}
@@ -395,7 +469,7 @@ export const GoalsScreen: React.FC = () => {
           onClose={() => setIsEditOpen(false)}
           title="Edit Goal"
         >
-          <View style={styles.modalForm}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalForm}>
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
               Goal Title *
             </Text>
@@ -423,16 +497,43 @@ export const GoalsScreen: React.FC = () => {
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
               Category
             </Text>
-            <TextInput
-              value={editCategory}
-              onChangeText={setEditCategory}
-              style={[
-                styles.modalInput,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-              ]}
-            />
+            <View style={styles.catSelectionGrid}>
+              {GOAL_CATEGORIES.map((cat) => {
+                const isSelected = editCategory === cat;
+                const cfg = GOAL_CATEGORY_CONFIG[cat];
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    activeOpacity={0.7}
+                    onPress={() => setEditCategory(cat)}
+                    style={[
+                      styles.catChoiceBtn,
+                      {
+                        backgroundColor: isSelected ? cfg.color : colors.inputBg,
+                        borderColor: isSelected ? cfg.color : colors.border,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={cfg.icon}
+                      size={14}
+                      color={isSelected ? '#FFFFFF' : cfg.color}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={[
+                        typography.captionBold,
+                        { color: isSelected ? '#FFFFFF' : colors.textPrimary },
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
-            <View style={{ flexDirection: 'row', marginTop: 16, gap: 10 }}>
+            <View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
               <Button
                 title="Cancel"
                 variant="ghost"
@@ -446,7 +547,7 @@ export const GoalsScreen: React.FC = () => {
                 style={{ flex: 2 }}
               />
             </View>
-          </View>
+          </ScrollView>
         </BottomSheetModal>
       </View>
     </Screen>
@@ -487,6 +588,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  filterWrapper: {
+    marginBottom: 12,
+  },
+  filterScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
   list: {
     flex: 1,
   },
@@ -501,6 +614,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  catBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   goalTitle: {
     fontWeight: '700',
@@ -546,6 +671,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 16,
     marginBottom: 14,
+  },
+  catSelectionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+    marginTop: 2,
+  },
+  catChoiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   textArea: {
     height: 100,

@@ -229,6 +229,7 @@ export async function seedInitialDataAsync(database?: SQLiteDatabase): Promise<b
       {
         title: 'Pass the Exit Exam',
         due: '2027-08-30',
+        category: 'Skills',
         milestones: [
           { title: 'Complete Core CS Syllabus', done: 1 },
           { title: 'Solve 200 Mock Exam Questions', done: 1 },
@@ -239,10 +240,21 @@ export async function seedInitialDataAsync(database?: SQLiteDatabase): Promise<b
       {
         title: 'Build 3 Production Projects',
         due: '2026-12-31',
+        category: 'Career',
         milestones: [
           { title: 'Fullstack Mobile Productivity App', done: 1 },
           { title: 'Trading Backtester System', done: 1 },
           { title: 'Distributed Microservices Platform', done: 0 },
+        ],
+      },
+      {
+        title: 'Run a 10K Marathon',
+        due: '2026-11-30',
+        category: 'Health',
+        milestones: [
+          { title: 'Complete 5K non-stop run', done: 1 },
+          { title: 'Train 3x weekly for 8 weeks', done: 1 },
+          { title: 'Pace under 5:30 min/km', done: 0 },
         ],
       },
     ];
@@ -250,9 +262,9 @@ export async function seedInitialDataAsync(database?: SQLiteDatabase): Promise<b
     for (const g of goals) {
       const gId = generateId('goal');
       await db.runAsync(
-        `INSERT INTO goals (id, title, due_date, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?);`,
-        [gId, g.title, g.due, now, now]
+        `INSERT INTO goals (id, title, due_date, category, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?);`,
+        [gId, g.title, g.due, g.category, now, now]
       );
 
       for (const m of g.milestones) {
