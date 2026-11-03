@@ -20,39 +20,46 @@ import { Checkbox } from '../../../components/ui/Checkbox';
 import { Chip } from '../../../components/ui/Chip';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useTheme } from '../../../hooks/useTheme';
+import { useCustomizationStore } from '../../../store/useCustomizationStore';
+import { CustomizationRepository } from '../../customization/customization.repository';
+import { ViewModeSwitcher } from '../../customization/components/ViewModeSwitcher';
+import { CustomFieldsSection } from '../../customization/components/CustomFieldsSection';
+import { CustomFieldsBadgeRow } from '../../customization/components/CustomFieldsBadgeRow';
+import { sortItemsByLayout } from '../../customization/layout.utils';
 import { GoalsRepository, Goal, GoalMilestone } from '../goals.repository';
 import {
   GOAL_CATEGORIES,
-  GoalCategory,
   GOAL_CATEGORY_CONFIG,
   getGoalCategoryConfig,
 } from '../goals.constants';
 
-const FILTER_CATEGORIES = ['All', ...GOAL_CATEGORIES] as const;
-
 export const GoalsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
+  const pageLayout = useCustomizationStore((state) => state.pageLayouts['goals']);
 
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [goals, setGoals] = useState<Goal[]>([]);
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
   const [milestonesMap, setMilestonesMap] = useState<Record<string, GoalMilestone[]>>({});
+  const [dynamicCategories, setDynamicCategories] = useState<{ name: string; color: string; icon: string }[]>([]);
 
   // Add Modal State
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('2026-12-31');
-  const [category, setCategory] = useState<GoalCategory>('Career');
+  const [category, setCategory] = useState<string>('Career');
   const [initialMilestones, setInitialMilestones] = useState('');
+  const [addCustomValues, setAddCustomValues] = useState<Record<string, any>>({});
 
   // Edit Modal State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
-  const [editCategory, setEditCategory] = useState<GoalCategory>('Career');
+  const [editCategory, setEditCategory] = useState<string>('Career');
+  const [editCustomValues, setEditCustomValues] = useState<Record<string, any>>({});
 
   const loadGoals = useCallback(() => {
     const list = GoalsRepository.getAllWithProgress(activeTab === 'completed' ? 1 : 0);
@@ -63,6 +70,25 @@ export const GoalsScreen: React.FC = () => {
       map[g.id] = GoalsRepository.getMilestones(g.id);
     });
     setMilestonesMap(map);
+
+    // Load custom categories for Goals
+    const customCats = CustomizationRepository.getCategories('goals');
+    const mergedCats: { name: string; color: string; icon: string }[] = GOAL_CATEGORIES.map((cat) => ({
+      name: cat,
+      color: GOAL_CATEGORY_CONFIG[cat]?.color || '#10B981',
+      icon: GOAL_CATEGORY_CONFIG[cat]?.icon || 'bookmark-outline',
+    }));
+
+    customCats.forEach((c) => {
+      if (!mergedCats.some((m) => m.name.toLowerCase() === c.name.toLowerCase())) {
+        mergedCats.push({
+          name: c.name,
+          color: c.color,
+          icon: c.icon || 'bookmark-outline',
+        });
+      }
+    });
+    setDynamicCategories(mergedCats);
   }, [activeTab]);
 
   useFocusEffect(
@@ -71,13 +97,25 @@ export const GoalsScreen: React.FC = () => {
     }, [loadGoals])
   );
 
-  // Filtered goals by category
+  // Filtered & sorted goals
   const filteredGoals = useMemo(() => {
-    if (selectedCategory === 'All') return goals;
-    return goals.filter(
-      (g) => (g.category || 'Others').toLowerCase() === selectedCategory.toLowerCase()
-    );
-  }, [goals, selectedCategory]);
+    let list = goals;
+    if (selectedCategory !== 'All') {
+      list = goals.filter(
+        (g) => (g.category || 'Others').toLowerCase() === selectedCategory.toLowerCase()
+      );
+    }
+    return sortItemsByLayout(list, pageLayout);
+  }, [goals, selectedCategory, pageLayout]);
+
+  const viewMode = pageLayout?.viewMode || 'card';
+  const visibleFields = pageLayout?.visibleFields || [
+    'show_dates',
+    'show_categories',
+    'show_progress',
+    'show_notes',
+    'show_status',
+  ];
 
   const handleToggleMilestone = (milestoneId: string) => {
     GoalsRepository.toggleMilestone(milestoneId);
@@ -95,16 +133,21 @@ export const GoalsScreen: React.FC = () => {
       .map((m) => m.trim())
       .filter(Boolean);
 
-    GoalsRepository.createGoal({
+    const created = GoalsRepository.createGoal({
       title: title.trim(),
       dueDate,
       category,
       milestones: milestonesList,
     });
 
+    if (created && Object.keys(addCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('goals', created.id, addCustomValues);
+    }
+
     setTitle('');
     setInitialMilestones('');
     setCategory('Career');
+    setAddCustomValues({});
     setIsAddOpen(false);
     loadGoals();
   };
@@ -113,8 +156,9 @@ export const GoalsScreen: React.FC = () => {
     setEditingGoal(goal);
     setEditTitle(goal.title);
     setEditDueDate(goal.due_date);
-    const catConfig = getGoalCategoryConfig(goal.category);
-    setEditCategory(catConfig.name);
+    setEditCategory(goal.category || 'Career');
+    const existingVals = CustomizationRepository.getFieldValues('goals', goal.id);
+    setEditCustomValues(existingVals);
     setIsEditOpen(true);
   };
 
@@ -130,8 +174,13 @@ export const GoalsScreen: React.FC = () => {
       category: editCategory,
     });
 
+    if (Object.keys(editCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('goals', editingGoal.id, editCustomValues);
+    }
+
     setIsEditOpen(false);
     setEditingGoal(null);
+    setEditCustomValues({});
     loadGoals();
   };
 
@@ -157,6 +206,8 @@ export const GoalsScreen: React.FC = () => {
     setExpandedGoalId(expandedGoalId === goalId ? null : goalId);
   };
 
+  const filterCategoryOptions = ['All', ...dynamicCategories.map((c) => c.name)];
+
   return (
     <Screen backgroundColor={colors.background}>
       <View style={styles.container}>
@@ -176,14 +227,21 @@ export const GoalsScreen: React.FC = () => {
               My Goals
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setIsAddOpen(true)}
-            style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
-            accessibilityRole="button"
-            accessibilityLabel="Add Goal"
-          >
-            <Ionicons name="add" size={24} color={colors.primary} />
-          </TouchableOpacity>
+
+          <View style={styles.headerRight}>
+            {/* View Mode Switcher */}
+            <ViewModeSwitcher pageKey="goals" />
+
+            {/* Add Goal Button */}
+            <TouchableOpacity
+              onPress={() => setIsAddOpen(true)}
+              style={[styles.addBtn, { backgroundColor: colors.accentMint, marginLeft: 8 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Add Goal"
+            >
+              <Ionicons name="add" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Active vs Completed Tabs */}
@@ -197,14 +255,14 @@ export const GoalsScreen: React.FC = () => {
           style={{ marginBottom: 12 }}
         />
 
-        {/* Category Filter Horizontal Scroll */}
+        {/* Dynamic Category Filter Horizontal Scroll */}
         <View style={styles.filterWrapper}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterScroll}
           >
-            {FILTER_CATEGORIES.map((cat) => {
+            {filterCategoryOptions.map((cat) => {
               const isSelected = selectedCategory === cat;
               return (
                 <Chip
@@ -219,10 +277,13 @@ export const GoalsScreen: React.FC = () => {
           </ScrollView>
         </View>
 
-        {/* Goals List */}
+        {/* Goals List - Rendered by View Mode */}
         <ScrollView
           style={styles.list}
-          contentContainerStyle={styles.scrollListPadding}
+          contentContainerStyle={[
+            styles.scrollListPadding,
+            viewMode === 'grid' && styles.gridContainer,
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {filteredGoals.length === 0 ? (
@@ -251,6 +312,117 @@ export const GoalsScreen: React.FC = () => {
               const milestones = milestonesMap[goal.id] || [];
               const catCfg = getGoalCategoryConfig(goal.category);
 
+              // 1. Compact View Mode
+              if (viewMode === 'compact') {
+                return (
+                  <Card key={goal.id} style={styles.compactGoalCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => toggleExpand(goal.id)}
+                      style={styles.compactRow}
+                    >
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                          {goal.title}
+                        </Text>
+                        {visibleFields.includes('show_dates') && (
+                          <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                            Due: {goal.due_date}
+                          </Text>
+                        )}
+                      </View>
+                      {visibleFields.includes('show_categories') && (
+                        <View style={[styles.compactBadge, { backgroundColor: catCfg.bg }]}>
+                          <Text style={[typography.captionBold, { color: catCfg.color, fontSize: 10 }]}>
+                            {goal.category}
+                          </Text>
+                        </View>
+                      )}
+                      {visibleFields.includes('show_progress') && (
+                        <Text style={[typography.captionBold, { color: colors.primary, marginLeft: 8 }]}>
+                          {goal.progressPercent}%
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </Card>
+                );
+              }
+
+              // 2. List View Mode
+              if (viewMode === 'list') {
+                return (
+                  <Card key={goal.id} style={styles.listGoalCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => toggleExpand(goal.id)}
+                      style={styles.listRow}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                          {goal.title}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                          {visibleFields.includes('show_dates') && (
+                            <Text style={[typography.caption, { color: colors.textSecondary, marginRight: 8 }]}>
+                              Due: {goal.due_date}
+                            </Text>
+                          )}
+                          {visibleFields.includes('show_categories') && (
+                            <Text style={[typography.caption, { color: catCfg.color }]}>
+                              • {goal.category}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      {visibleFields.includes('show_progress') && (
+                        <Text style={[typography.h3, { color: colors.primary, fontWeight: '800' }]}>
+                          {goal.progressPercent}%
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </Card>
+                );
+              }
+
+              // 3. Grid View Mode
+              if (viewMode === 'grid') {
+                return (
+                  <Card key={goal.id} style={styles.gridGoalCard}>
+                    <TouchableOpacity activeOpacity={0.7} onPress={() => toggleExpand(goal.id)}>
+                      {visibleFields.includes('show_categories') && (
+                        <View style={[styles.catBadge, { backgroundColor: catCfg.bg, alignSelf: 'flex-start', marginBottom: 6 }]}>
+                          <Text style={[typography.captionBold, { color: catCfg.color, fontSize: 10 }]}>
+                            {catCfg.name}
+                          </Text>
+                        </View>
+                      )}
+                      <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={2}>
+                        {goal.title}
+                      </Text>
+                      {visibleFields.includes('show_progress') && (
+                        <ProgressBar
+                          progress={goal.progressPercent || 0}
+                          height={4}
+                          color={colors.primary}
+                          style={{ marginVertical: 8 }}
+                        />
+                      )}
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={[typography.captionBold, { color: colors.primary }]}>
+                          {goal.progressPercent}%
+                        </Text>
+                        {visibleFields.includes('show_dates') && (
+                          <Text style={[typography.caption, { color: colors.textMuted, fontSize: 10 }]}>
+                            {goal.due_date}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  </Card>
+                );
+              }
+
+              // 4. Standard Card View (Default)
               return (
                 <Card key={goal.id} style={styles.goalCard}>
                   <TouchableOpacity
@@ -260,38 +432,49 @@ export const GoalsScreen: React.FC = () => {
                     <View style={styles.goalHeader}>
                       <View style={{ flex: 1, marginRight: 10 }}>
                         {/* Category Badge */}
-                        <View style={styles.badgeRow}>
-                          <View style={[styles.catBadge, { backgroundColor: catCfg.bg }]}>
-                            <Ionicons
-                              name={catCfg.icon}
-                              size={12}
-                              color={catCfg.color}
-                              style={{ marginRight: 4 }}
-                            />
-                            <Text style={[typography.captionBold, { color: catCfg.color, fontSize: 11 }]}>
-                              {catCfg.name}
-                            </Text>
+                        {visibleFields.includes('show_categories') && (
+                          <View style={styles.badgeRow}>
+                            <View style={[styles.catBadge, { backgroundColor: catCfg.bg }]}>
+                              <Ionicons
+                                name={catCfg.icon}
+                                size={12}
+                                color={catCfg.color}
+                                style={{ marginRight: 4 }}
+                              />
+                              <Text style={[typography.captionBold, { color: catCfg.color, fontSize: 11 }]}>
+                                {catCfg.name}
+                              </Text>
+                            </View>
                           </View>
-                        </View>
+                        )}
 
                         <Text style={[styles.goalTitle, typography.h2, { color: colors.textPrimary }]}>
                           {goal.title}
                         </Text>
-                        <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
-                          Due: {goal.due_date}
-                        </Text>
+                        {visibleFields.includes('show_dates') && (
+                          <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
+                            Due: {goal.due_date}
+                          </Text>
+                        )}
                       </View>
-                      <Text style={[typography.h2, { color: colors.primary, fontWeight: '800' }]}>
-                        {goal.progressPercent}%
-                      </Text>
+                      {visibleFields.includes('show_progress') && (
+                        <Text style={[typography.h2, { color: colors.primary, fontWeight: '800' }]}>
+                          {goal.progressPercent}%
+                        </Text>
+                      )}
                     </View>
 
-                    <ProgressBar
-                      progress={goal.progressPercent || 0}
-                      height={6}
-                      color={colors.primary}
-                      style={{ marginTop: 12, marginBottom: 8 }}
-                    />
+                    {visibleFields.includes('show_progress') && (
+                      <ProgressBar
+                        progress={goal.progressPercent || 0}
+                        height={6}
+                        color={colors.primary}
+                        style={{ marginTop: 12, marginBottom: 8 }}
+                      />
+                    )}
+
+                    {/* Custom Fields Badges */}
+                    <CustomFieldsBadgeRow entityType="goals" entityId={goal.id} />
 
                     <View style={styles.goalFooter}>
                       <Text style={[typography.caption, { color: colors.textMuted }]}>
@@ -403,26 +586,25 @@ export const GoalsScreen: React.FC = () => {
               Category
             </Text>
             <View style={styles.catSelectionGrid}>
-              {GOAL_CATEGORIES.map((cat) => {
-                const isSelected = category === cat;
-                const cfg = GOAL_CATEGORY_CONFIG[cat];
+              {dynamicCategories.map((cat) => {
+                const isSelected = category === cat.name;
                 return (
                   <TouchableOpacity
-                    key={cat}
+                    key={cat.name}
                     activeOpacity={0.7}
-                    onPress={() => setCategory(cat)}
+                    onPress={() => setCategory(cat.name)}
                     style={[
                       styles.catChoiceBtn,
                       {
-                        backgroundColor: isSelected ? cfg.color : colors.inputBg,
-                        borderColor: isSelected ? cfg.color : colors.border,
+                        backgroundColor: isSelected ? cat.color : colors.inputBg,
+                        borderColor: isSelected ? cat.color : colors.border,
                       },
                     ]}
                   >
                     <Ionicons
-                      name={cfg.icon}
+                      name={cat.icon as any}
                       size={14}
-                      color={isSelected ? '#FFFFFF' : cfg.color}
+                      color={isSelected ? '#FFFFFF' : cat.color}
                       style={{ marginRight: 6 }}
                     />
                     <Text
@@ -431,14 +613,21 @@ export const GoalsScreen: React.FC = () => {
                         { color: isSelected ? '#FFFFFF' : colors.textPrimary },
                       ]}
                     >
-                      {cat}
+                      {cat.name}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+            {/* Custom Fields Section */}
+            <CustomFieldsSection
+              entityType="goals"
+              values={addCustomValues}
+              onChange={(k, v) => setAddCustomValues((prev) => ({ ...prev, [k]: v }))}
+            />
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 10 }]}>
               Milestones (one per line)
             </Text>
             <TextInput
@@ -498,26 +687,25 @@ export const GoalsScreen: React.FC = () => {
               Category
             </Text>
             <View style={styles.catSelectionGrid}>
-              {GOAL_CATEGORIES.map((cat) => {
-                const isSelected = editCategory === cat;
-                const cfg = GOAL_CATEGORY_CONFIG[cat];
+              {dynamicCategories.map((cat) => {
+                const isSelected = editCategory === cat.name;
                 return (
                   <TouchableOpacity
-                    key={cat}
+                    key={cat.name}
                     activeOpacity={0.7}
-                    onPress={() => setEditCategory(cat)}
+                    onPress={() => setEditCategory(cat.name)}
                     style={[
                       styles.catChoiceBtn,
                       {
-                        backgroundColor: isSelected ? cfg.color : colors.inputBg,
-                        borderColor: isSelected ? cfg.color : colors.border,
+                        backgroundColor: isSelected ? cat.color : colors.inputBg,
+                        borderColor: isSelected ? cat.color : colors.border,
                       },
                     ]}
                   >
                     <Ionicons
-                      name={cfg.icon}
+                      name={cat.icon as any}
                       size={14}
-                      color={isSelected ? '#FFFFFF' : cfg.color}
+                      color={isSelected ? '#FFFFFF' : cat.color}
                       style={{ marginRight: 6 }}
                     />
                     <Text
@@ -526,12 +714,19 @@ export const GoalsScreen: React.FC = () => {
                         { color: isSelected ? '#FFFFFF' : colors.textPrimary },
                       ]}
                     >
-                      {cat}
+                      {cat.name}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
+
+            {/* Custom Fields Section */}
+            <CustomFieldsSection
+              entityType="goals"
+              values={editCustomValues}
+              onChange={(k, v) => setEditCustomValues((prev) => ({ ...prev, [k]: v }))}
+            />
 
             <View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
               <Button
@@ -570,6 +765,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   menuBtn: {
     width: 42,
     height: 42,
@@ -582,9 +781,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -606,9 +805,42 @@ const styles = StyleSheet.create({
   scrollListPadding: {
     paddingBottom: 110,
   },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
   goalCard: {
     marginBottom: 12,
     padding: 16,
+  },
+  compactGoalCard: {
+    marginBottom: 8,
+    padding: 10,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  compactBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  listGoalCard: {
+    marginBottom: 8,
+    padding: 12,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gridGoalCard: {
+    width: '48%',
+    marginBottom: 12,
+    padding: 12,
   },
   goalHeader: {
     flexDirection: 'row',
@@ -634,6 +866,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 8,
   },
   headerActions: {
     flexDirection: 'row',
@@ -676,7 +909,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 14,
     marginTop: 2,
   },
   catChoiceBtn: {

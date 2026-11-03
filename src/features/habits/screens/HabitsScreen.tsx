@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,17 +18,25 @@ import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { BarChart } from '../../../components/charts/BarChart';
 import { useTheme } from '../../../hooks/useTheme';
+import { useCustomizationStore } from '../../../store/useCustomizationStore';
+import { CustomizationRepository } from '../../customization/customization.repository';
+import { ViewModeSwitcher } from '../../customization/components/ViewModeSwitcher';
+import { CustomFieldsSection } from '../../customization/components/CustomFieldsSection';
+import { CustomFieldsBadgeRow } from '../../customization/components/CustomFieldsBadgeRow';
+import { sortItemsByLayout } from '../../customization/layout.utils';
 import { HabitsRepository, Habit } from '../habits.repository';
 
 export const HabitsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
+  const pageLayout = useCustomizationStore((state) => state.pageLayouts['habits']);
   const todayStr = new Date().toISOString().split('T')[0];
 
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedHabitDetails, setSelectedHabitDetails] = useState<(Habit & { totalCompletedDays?: number; completionHistory?: any[] }) | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [availableUnits, setAvailableUnits] = useState<string[]>(['times', 'mins', 'pages', 'km', 'cups', 'hrs']);
 
   // Form State
   const [name, setName] = useState('');
@@ -36,6 +44,8 @@ export const HabitsScreen: React.FC = () => {
   const [unit, setUnit] = useState('times');
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
   const [color, setColor] = useState('#1E8E4E');
+  const [addCustomValues, setAddCustomValues] = useState<Record<string, any>>({});
+  const [editCustomValues, setEditCustomValues] = useState<Record<string, any>>({});
 
   const loadHabits = useCallback(() => {
     const list = HabitsRepository.getAllWithProgress(todayStr);
@@ -46,6 +56,15 @@ export const HabitsScreen: React.FC = () => {
       const refreshed = HabitsRepository.getHabitDetails(selectedHabitDetails.id, todayStr);
       setSelectedHabitDetails(refreshed);
     }
+
+    // Load custom measurement units
+    const customUnits = CustomizationRepository.getUnits('habits');
+    const baseUnits = ['times', 'mins', 'pages', 'km', 'cups', 'hrs'];
+    customUnits.forEach((u) => {
+      const unitKey = u.abbreviation || u.name.toLowerCase();
+      if (!baseUnits.includes(unitKey)) baseUnits.push(unitKey);
+    });
+    setAvailableUnits(baseUnits);
   }, [todayStr, selectedHabitDetails?.id]);
 
   useFocusEffect(
@@ -70,6 +89,7 @@ export const HabitsScreen: React.FC = () => {
     setUnit('times');
     setFrequency('daily');
     setColor('#1E8E4E');
+    setAddCustomValues({});
     setIsAddOpen(true);
   };
 
@@ -79,6 +99,8 @@ export const HabitsScreen: React.FC = () => {
     setUnit(habit.unit || 'times');
     setFrequency(habit.frequency || 'daily');
     setColor(habit.color || '#1E8E4E');
+    const existingVals = CustomizationRepository.getFieldValues('habits', habit.id);
+    setEditCustomValues(existingVals);
     setIsEditOpen(true);
   };
 
@@ -88,7 +110,7 @@ export const HabitsScreen: React.FC = () => {
       return;
     }
 
-    HabitsRepository.create({
+    const created = HabitsRepository.create({
       name: name.trim(),
       targetCount: parseInt(targetCount, 10) || 1,
       unit: unit || 'times',
@@ -96,6 +118,10 @@ export const HabitsScreen: React.FC = () => {
       icon: 'flash-outline',
       color,
     });
+
+    if (created && Object.keys(addCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('habits', created.id, addCustomValues);
+    }
 
     setIsAddOpen(false);
     loadHabits();
@@ -114,6 +140,10 @@ export const HabitsScreen: React.FC = () => {
       frequency,
       color,
     });
+
+    if (Object.keys(editCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('habits', selectedHabitDetails.id, editCustomValues);
+    }
 
     setIsEditOpen(false);
     loadHabits();
@@ -143,6 +173,19 @@ export const HabitsScreen: React.FC = () => {
   const topStreak = habits.length > 0 ? Math.max(...habits.map((h) => h.streak || 0), 12) : 12;
   const combined7Days = [1, 1, 0, 1, 1, 1, 1];
 
+  const sortedHabits = useMemo(() => {
+    return sortItemsByLayout(habits, pageLayout);
+  }, [habits, pageLayout]);
+
+  const viewMode = pageLayout?.viewMode || 'card';
+  const visibleFields = pageLayout?.visibleFields || [
+    'show_dates',
+    'show_categories',
+    'show_progress',
+    'show_notes',
+    'show_status',
+  ];
+
   return (
     <Screen backgroundColor={colors.background}>
       <View style={styles.container}>
@@ -162,14 +205,18 @@ export const HabitsScreen: React.FC = () => {
               Habits
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={handleOpenAdd}
-            style={[styles.addIconBtn, { backgroundColor: colors.accentMint }]}
-            accessibilityRole="button"
-            accessibilityLabel="Add Habit"
-          >
-            <Ionicons name="add" size={24} color={colors.primary} />
-          </TouchableOpacity>
+
+          <View style={styles.headerRight}>
+            <ViewModeSwitcher pageKey="habits" />
+            <TouchableOpacity
+              onPress={handleOpenAdd}
+              style={[styles.addIconBtn, { backgroundColor: colors.accentMint, marginLeft: 8 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Add Habit"
+            >
+              <Ionicons name="add" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Streak Banner */}
@@ -199,10 +246,13 @@ export const HabitsScreen: React.FC = () => {
         {/* Habits List */}
         <ScrollView
           style={styles.list}
-          contentContainerStyle={styles.scrollListPadding}
+          contentContainerStyle={[
+            styles.scrollListPadding,
+            viewMode === 'grid' && styles.gridContainer,
+          ]}
           showsVerticalScrollIndicator={false}
         >
-          {habits.length === 0 ? (
+          {sortedHabits.length === 0 ? (
             <EmptyState
               icon="flash-outline"
               title="No habits yet"
@@ -211,8 +261,126 @@ export const HabitsScreen: React.FC = () => {
               onAction={handleOpenAdd}
             />
           ) : (
-            habits.map((habit) => {
+            sortedHabits.map((habit) => {
               const isDone = (habit.todayCount || 0) >= habit.target_count;
+
+              // 1. Compact View Mode
+              if (viewMode === 'compact') {
+                return (
+                  <Card key={habit.id} style={styles.compactCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => handleOpenDetail(habit)}
+                      style={styles.compactRow}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                          {habit.name}
+                        </Text>
+                        <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                          {habit.todayCount || 0}/{habit.target_count} {habit.unit}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleToggleHabit(habit.id)}
+                        style={[
+                          styles.miniCheckBtn,
+                          {
+                            backgroundColor: isDone ? colors.primary : colors.accentMint,
+                            borderColor: colors.primary,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={isDone ? 'checkmark' : 'add'}
+                          size={14}
+                          color={isDone ? '#FFFFFF' : colors.primary}
+                        />
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  </Card>
+                );
+              }
+
+              // 2. List View Mode
+              if (viewMode === 'list') {
+                return (
+                  <Card key={habit.id} style={styles.listCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => handleOpenDetail(habit)}
+                      style={styles.listRow}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                          {habit.name}
+                        </Text>
+                        <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                          {habit.todayCount || 0} of {habit.target_count} {habit.unit} · {habit.streak || 0}d streak
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleToggleHabit(habit.id)}
+                        style={[
+                          styles.checkBtn,
+                          {
+                            backgroundColor: isDone ? colors.primary : 'transparent',
+                            borderColor: isDone ? colors.primary : colors.border,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={isDone ? 'checkmark' : 'add'}
+                          size={18}
+                          color={isDone ? '#FFFFFF' : colors.textSecondary}
+                        />
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  </Card>
+                );
+              }
+
+              // 3. Grid View Mode
+              if (viewMode === 'grid') {
+                return (
+                  <Card key={habit.id} style={styles.gridCard}>
+                    <TouchableOpacity activeOpacity={0.8} onPress={() => handleOpenDetail(habit)}>
+                      <View style={[styles.iconBox, { backgroundColor: (habit.color || colors.primary) + '22', marginBottom: 8 }]}>
+                        <Ionicons
+                          name={(habit.icon as any) || 'flash-outline'}
+                          size={20}
+                          color={habit.color || colors.primary}
+                        />
+                      </View>
+                      <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                        {habit.name}
+                      </Text>
+                      <ProgressBar
+                        progress={habit.progressPercent || 0}
+                        height={4}
+                        color={habit.color || colors.primary}
+                        style={{ marginVertical: 6 }}
+                      />
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={[typography.caption, { color: colors.textSecondary, fontSize: 11 }]}>
+                          {habit.todayCount || 0}/{habit.target_count} {habit.unit}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => handleToggleHabit(habit.id)}
+                          style={[
+                            styles.miniCheckBtn,
+                            { backgroundColor: isDone ? colors.primary : colors.accentMint },
+                          ]}
+                        >
+                          <Ionicons name={isDone ? 'checkmark' : 'add'} size={12} color={isDone ? '#FFFFFF' : colors.primary} />
+                        </TouchableOpacity>
+                      </View>
+                    </TouchableOpacity>
+                  </Card>
+                );
+              }
+
+              // 4. Card View Mode (Default)
               return (
                 <TouchableOpacity
                   key={habit.id}
@@ -234,22 +402,26 @@ export const HabitsScreen: React.FC = () => {
                           <Text style={[styles.habitName, typography.bodyBold, { color: colors.textPrimary }]}>
                             {habit.name}
                           </Text>
-                          <Text style={[typography.captionBold, { color: isDone ? colors.primary : colors.textMuted }]}>
-                            {habit.progressPercent}%
-                          </Text>
+                          {visibleFields.includes('show_progress') && (
+                            <Text style={[typography.captionBold, { color: isDone ? colors.primary : colors.textMuted }]}>
+                              {habit.progressPercent}%
+                            </Text>
+                          )}
                         </View>
 
-                        <View style={styles.progressRow}>
-                          <ProgressBar
-                            progress={habit.progressPercent || 0}
-                            height={6}
-                            color={habit.color || colors.primary}
-                            style={{ flex: 1, marginRight: 12 }}
-                          />
-                          <Text style={[typography.caption, { color: colors.textMuted }]}>
-                            {habit.todayCount || 0} / {habit.target_count} {habit.unit}
-                          </Text>
-                        </View>
+                        {visibleFields.includes('show_progress') && (
+                          <View style={styles.progressRow}>
+                            <ProgressBar
+                              progress={habit.progressPercent || 0}
+                              height={6}
+                              color={habit.color || colors.primary}
+                              style={{ flex: 1, marginRight: 12 }}
+                            />
+                            <Text style={[typography.caption, { color: colors.textMuted }]}>
+                              {habit.todayCount || 0} / {habit.target_count} {habit.unit}
+                            </Text>
+                          </View>
+                        )}
                       </View>
 
                       <TouchableOpacity
@@ -274,6 +446,9 @@ export const HabitsScreen: React.FC = () => {
                         />
                       </TouchableOpacity>
                     </View>
+
+                    {/* Custom Fields Badges */}
+                    <CustomFieldsBadgeRow entityType="habits" entityId={habit.id} />
                   </Card>
                 </TouchableOpacity>
               );
@@ -338,7 +513,31 @@ export const HabitsScreen: React.FC = () => {
               </View>
             </View>
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 12 }]}>
+            {/* Quick Unit Selector */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              {availableUnits.map((u) => (
+                <TouchableOpacity
+                  key={u}
+                  onPress={() => setUnit(u)}
+                  style={[
+                    styles.unitChip,
+                    unit === u && { backgroundColor: colors.accentMint, borderColor: colors.primary },
+                    { borderColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.captionBold,
+                      { color: unit === u ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    {u}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
               Frequency
             </Text>
             <View style={styles.frequencyRow}>
@@ -378,15 +577,22 @@ export const HabitsScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
+            {/* Custom Fields Section */}
+            <CustomFieldsSection
+              entityType="habits"
+              values={addCustomValues}
+              onChange={(k, v) => setAddCustomValues((prev) => ({ ...prev, [k]: v }))}
+            />
+
             <Button
               title="Create Habit"
               onPress={handleSaveAdd}
-              style={{ marginTop: 24 }}
+              style={{ marginTop: 20 }}
             />
           </View>
         </BottomSheetModal>
 
-        {/* Habit Details Modal (Requirement 2) */}
+        {/* Habit Details Modal */}
         {selectedHabitDetails && (
           <BottomSheetModal
             visible={!!selectedHabitDetails && !isEditOpen}
@@ -440,50 +646,19 @@ export const HabitsScreen: React.FC = () => {
                 </Card>
               </View>
 
-              {/* Schedule & History info */}
-              <View style={[styles.infoSection, { borderColor: colors.border }]}>
-                <View style={styles.infoRow}>
-                  <Text style={[typography.body, { color: colors.textSecondary }]}>Frequency & Schedule</Text>
-                  <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                    {selectedHabitDetails.frequency.toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={[typography.body, { color: colors.textSecondary }]}>Current Progress</Text>
-                  <Text style={[typography.bodyBold, { color: colors.primary }]}>
-                    {selectedHabitDetails.todayCount || 0} / {selectedHabitDetails.target_count} {selectedHabitDetails.unit}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={[typography.body, { color: colors.textSecondary }]}>Completion Status</Text>
-                  <Text
-                    style={[
-                      typography.bodyBold,
-                      {
-                        color:
-                          (selectedHabitDetails.todayCount || 0) >= selectedHabitDetails.target_count
-                            ? colors.primary
-                            : colors.orange,
-                      },
-                    ]}
-                  >
-                    {(selectedHabitDetails.todayCount || 0) >= selectedHabitDetails.target_count
-                      ? 'Completed Today ✓'
-                      : 'In Progress'}
-                  </Text>
-                </View>
-              </View>
+              {/* Custom Fields on Detail View */}
+              <CustomFieldsBadgeRow entityType="habits" entityId={selectedHabitDetails.id} />
 
-              {/* Action Buttons: Edit and Delete */}
-              <View style={styles.detailActionButtons}>
+              {/* Detail Actions */}
+              <View style={styles.detailActionsRow}>
                 <Button
                   title="Edit Habit"
-                  variant="primary"
+                  variant="secondary"
                   onPress={() => handleOpenEdit(selectedHabitDetails)}
                   style={{ flex: 1, marginRight: 8 }}
                 />
                 <Button
-                  title="Delete Habit"
+                  title="Delete"
                   variant="ghost"
                   onPress={() => handleDeleteHabit(selectedHabitDetails.id, selectedHabitDetails.name)}
                   style={{ flex: 1, marginLeft: 8 }}
@@ -501,7 +676,7 @@ export const HabitsScreen: React.FC = () => {
         >
           <View style={styles.modalForm}>
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Habit Name *
+              Habit Name
             </Text>
             <TextInput
               value={name}
@@ -543,60 +718,18 @@ export const HabitsScreen: React.FC = () => {
               </View>
             </View>
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 12 }]}>
-              Frequency
-            </Text>
-            <View style={styles.frequencyRow}>
-              <TouchableOpacity
-                onPress={() => setFrequency('daily')}
-                style={[
-                  styles.freqBtn,
-                  frequency === 'daily' && { backgroundColor: colors.accentMint, borderColor: colors.primary },
-                  { borderColor: colors.border },
-                ]}
-              >
-                <Text
-                  style={[
-                    typography.captionBold,
-                    { color: frequency === 'daily' ? colors.primary : colors.textSecondary },
-                  ]}
-                >
-                  Daily
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setFrequency('weekly')}
-                style={[
-                  styles.freqBtn,
-                  frequency === 'weekly' && { backgroundColor: colors.accentMint, borderColor: colors.primary },
-                  { borderColor: colors.border },
-                ]}
-              >
-                <Text
-                  style={[
-                    typography.captionBold,
-                    { color: frequency === 'weekly' ? colors.primary : colors.textSecondary },
-                  ]}
-                >
-                  Weekly
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {/* Custom Fields Section */}
+            <CustomFieldsSection
+              entityType="habits"
+              values={editCustomValues}
+              onChange={(k, v) => setEditCustomValues((prev) => ({ ...prev, [k]: v }))}
+            />
 
-            <View style={{ flexDirection: 'row', marginTop: 24, gap: 10 }}>
-              <Button
-                title="Cancel"
-                variant="ghost"
-                onPress={() => setIsEditOpen(false)}
-                style={{ flex: 1 }}
-              />
-              <Button
-                title="Save Changes"
-                variant="primary"
-                onPress={handleSaveEdit}
-                style={{ flex: 2 }}
-              />
-            </View>
+            <Button
+              title="Save Changes"
+              onPress={handleSaveEdit}
+              style={{ marginTop: 20 }}
+            />
           </View>
         </BottomSheetModal>
       </View>
@@ -620,6 +753,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   menuBtn: {
     width: 42,
     height: 42,
@@ -632,9 +769,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addIconBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -643,8 +780,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    marginBottom: 20,
+    borderRadius: 16,
     borderWidth: 1,
+    marginBottom: 16,
   },
   streakInfo: {
     flex: 1,
@@ -660,7 +798,44 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollListPadding: {
-    paddingBottom: 110,
+    paddingBottom: 40,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  compactCard: {
+    marginBottom: 8,
+    padding: 10,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  miniCheckBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  listCard: {
+    marginBottom: 8,
+    padding: 12,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gridCard: {
+    width: '48%',
+    marginBottom: 12,
+    padding: 12,
   },
   habitCard: {
     marginBottom: 12,
@@ -671,15 +846,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   habitDetails: {
     flex: 1,
+    marginHorizontal: 12,
   },
   titleLine: {
     flexDirection: 'row',
@@ -688,8 +863,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   habitName: {
-    flex: 1,
-    marginRight: 8,
+    fontSize: 16,
   },
   progressRow: {
     flexDirection: 'row',
@@ -702,7 +876,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 12,
   },
   modalForm: {
     paddingBottom: 24,
@@ -717,22 +890,29 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     fontSize: 16,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   row: {
     flexDirection: 'row',
   },
+  unitChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginRight: 6,
+  },
   frequencyRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
+    marginBottom: 10,
   },
   freqBtn: {
     flex: 1,
-    height: 42,
-    borderWidth: 1,
+    paddingVertical: 10,
     borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   detailContent: {
     paddingBottom: 24,
@@ -740,40 +920,28 @@ const styles = StyleSheet.create({
   detailHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   detailIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
   },
   detailStatsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
+    gap: 8,
+    marginBottom: 16,
   },
   detailStatBox: {
     flex: 1,
+    padding: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
+    borderRadius: 12,
   },
-  infoSection: {
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    paddingVertical: 14,
-    marginBottom: 24,
-    gap: 10,
-  },
-  infoRow: {
+  detailActionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  detailActionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginTop: 20,
   },
 });

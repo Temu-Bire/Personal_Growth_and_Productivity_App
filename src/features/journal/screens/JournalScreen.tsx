@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,12 @@ import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { BottomSheetModal } from '../../../components/ui/BottomSheetModal';
 import { useTheme } from '../../../hooks/useTheme';
+import { useCustomizationStore } from '../../../store/useCustomizationStore';
+import { CustomizationRepository } from '../../customization/customization.repository';
+import { ViewModeSwitcher } from '../../customization/components/ViewModeSwitcher';
+import { CustomFieldsSection } from '../../customization/components/CustomFieldsSection';
+import { CustomFieldsBadgeRow } from '../../customization/components/CustomFieldsBadgeRow';
+import { sortItemsByLayout } from '../../customization/layout.utils';
 import { JournalRepository, JournalEntry } from '../journal.repository';
 
 const MOOD_EMOJIS: Record<number, string> = {
@@ -40,18 +46,23 @@ const MOOD_LABELS: Record<number, string> = {
 export const JournalScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
+  const pageLayout = useCustomizationStore((state) => state.pageLayouts['journal']);
   const todayStr = new Date().toISOString().split('T')[0];
 
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([
+    'Productive', 'Study', 'Happy', 'Workout', 'Reading', 'Grateful', 'Focus', 'Mindset'
+  ]);
 
   // Composer / Add State
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [mood, setMood] = useState<number>(5);
   const [content, setContent] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>(['Productive', 'Study']);
+  const [addCustomValues, setAddCustomValues] = useState<Record<string, any>>({});
 
-  // Detail Modal State (Requirement 4)
+  // Detail Modal State
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
 
   // Edit Modal State
@@ -59,14 +70,20 @@ export const JournalScreen: React.FC = () => {
   const [editMood, setEditMood] = useState<number>(5);
   const [editContent, setEditContent] = useState('');
   const [editTags, setEditTags] = useState<string[]>([]);
-
-  const defaultTags = ['Productive', 'Study', 'Happy', 'Workout', 'Reading', 'Grateful', 'Focus', 'Mindset'];
+  const [editCustomValues, setEditCustomValues] = useState<Record<string, any>>({});
 
   const loadEntries = useCallback(() => {
     const list = JournalRepository.getEntries();
     setEntries(list);
 
-    // Refresh selected entry if open
+    // Load custom categories for journal tags
+    const customCats = CustomizationRepository.getCategories('journal');
+    const baseTags = ['Productive', 'Study', 'Happy', 'Workout', 'Reading', 'Grateful', 'Focus', 'Mindset'];
+    customCats.forEach((c) => {
+      if (!baseTags.includes(c.name)) baseTags.push(c.name);
+    });
+    setAvailableTags(baseTags);
+
     if (selectedEntry) {
       const refreshed = list.find((e) => e.id === selectedEntry.id);
       setSelectedEntry(refreshed || null);
@@ -101,14 +118,19 @@ export const JournalScreen: React.FC = () => {
       return;
     }
 
-    JournalRepository.saveEntry({
+    const created = JournalRepository.saveEntry({
       date: todayStr,
       mood,
       content: content.trim(),
       tags: selectedTags,
     });
 
+    if (created && Object.keys(addCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('journal', created.id, addCustomValues);
+    }
+
     setContent('');
+    setAddCustomValues({});
     setIsComposeOpen(false);
     loadEntries();
   };
@@ -129,6 +151,8 @@ export const JournalScreen: React.FC = () => {
       }
     }
     setEditTags(parsed);
+    const existingVals = CustomizationRepository.getFieldValues('journal', entry.id);
+    setEditCustomValues(existingVals);
     setIsEditOpen(true);
   };
 
@@ -143,6 +167,10 @@ export const JournalScreen: React.FC = () => {
       content: editContent.trim(),
       tags: editTags,
     });
+
+    if (Object.keys(editCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('journal', selectedEntry.id, editCustomValues);
+    }
 
     setIsEditOpen(false);
     loadEntries();
@@ -168,6 +196,12 @@ export const JournalScreen: React.FC = () => {
     );
   };
 
+  const sortedEntries = useMemo(() => {
+    return sortItemsByLayout(entries, pageLayout);
+  }, [entries, pageLayout]);
+
+  const viewMode = pageLayout?.viewMode || 'card';
+
   return (
     <Screen backgroundColor={colors.background}>
       <View style={styles.container}>
@@ -187,14 +221,18 @@ export const JournalScreen: React.FC = () => {
               My Journal
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setIsComposeOpen(true)}
-            style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
-            accessibilityRole="button"
-            accessibilityLabel="New Reflection"
-          >
-            <Ionicons name="add" size={24} color={colors.primary} />
-          </TouchableOpacity>
+
+          <View style={styles.headerRight}>
+            <ViewModeSwitcher pageKey="journal" />
+            <TouchableOpacity
+              onPress={() => setIsComposeOpen(true)}
+              style={[styles.addBtn, { backgroundColor: colors.accentMint, marginLeft: 8 }]}
+              accessibilityRole="button"
+              accessibilityLabel="New Reflection"
+            >
+              <Ionicons name="add" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Tab Filters */}
@@ -209,271 +247,311 @@ export const JournalScreen: React.FC = () => {
           style={{ marginBottom: 16 }}
         />
 
-        {/* Compact List of Journal Entries (Requirement 4) */}
+        {/* List of Journal Entries */}
         <ScrollView
           style={styles.list}
-          contentContainerStyle={styles.scrollPadding}
+          contentContainerStyle={[
+            styles.scrollPadding,
+            viewMode === 'grid' && styles.gridContainer,
+          ]}
           showsVerticalScrollIndicator={false}
         >
-          {entries.length === 0 ? (
+          {sortedEntries.length === 0 ? (
             <EmptyState
               icon="book-outline"
-              title="No reflections recorded"
-              description="Capture thoughts, daily gratitudes, and emotional momentum."
+              title="No reflections recorded yet"
+              description="Capture your thoughts, mood, and daily milestones."
               actionTitle="Write First Reflection"
               onAction={() => setIsComposeOpen(true)}
             />
           ) : (
-            entries.map((item) => {
-              let tagsArray: string[] = [];
-              if (item.tags) {
-                try {
-                  tagsArray = JSON.parse(item.tags);
-                } catch {
-                  // safe
-                }
+            sortedEntries.map((item) => {
+              const tags: string[] = item.tags ? JSON.parse(item.tags) : [];
+
+              // 1. Compact View Mode
+              if (viewMode === 'compact') {
+                return (
+                  <Card key={item.id} style={styles.compactCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => handleOpenDetail(item)}
+                      style={styles.compactRow}
+                    >
+                      <Text style={{ fontSize: 18, marginRight: 8 }}>{MOOD_EMOJIS[item.mood] || '😊'}</Text>
+                      <Text style={[typography.bodyBold, { color: colors.textPrimary, flex: 1 }]} numberOfLines={1}>
+                        {item.content}
+                      </Text>
+                      <Text style={[typography.caption, { color: colors.textMuted, marginLeft: 6 }]}>
+                        {item.date}
+                      </Text>
+                    </TouchableOpacity>
+                  </Card>
+                );
               }
 
-              // Extract first sentence/line as title, rest as preview
-              const lines = item.content.split('\n').filter(Boolean);
-              const previewTitle = lines[0] || 'Daily Reflection';
-              const previewSnippet = lines.slice(1).join(' ') || item.content;
-
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  activeOpacity={0.75}
-                  onPress={() => handleOpenDetail(item)}
-                >
-                  <Card style={styles.compactCard}>
-                    <View style={styles.compactRow}>
-                      <View style={[styles.moodBadge, { backgroundColor: colors.accentMint }]}>
-                        <Text style={{ fontSize: 24 }}>{MOOD_EMOJIS[item.mood] || '😊'}</Text>
+              // 2. List View Mode
+              if (viewMode === 'list') {
+                return (
+                  <Card key={item.id} style={styles.listCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => handleOpenDetail(item)}
+                      style={styles.listRow}
+                    >
+                      <View style={[styles.moodCircle, { backgroundColor: colors.accentMint, width: 36, height: 36, borderRadius: 18 }]}>
+                        <Text style={{ fontSize: 20 }}>{MOOD_EMOJIS[item.mood] || '😊'}</Text>
                       </View>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={[typography.captionBold, { color: colors.textSecondary }]}>
+                          {item.date}
+                        </Text>
+                        <Text style={[typography.body, { color: colors.textPrimary }]} numberOfLines={1}>
+                          {item.content}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </Card>
+                );
+              }
 
-                      <View style={styles.compactInfo}>
-                        <View style={styles.compactHeader}>
-                          <Text
-                            style={[styles.compactTitle, typography.bodyBold, { color: colors.textPrimary }]}
-                            numberOfLines={1}
-                          >
-                            {previewTitle}
-                          </Text>
-                          <Text style={[typography.caption, { color: colors.textMuted }]}>
+              // 3. Grid View Mode
+              if (viewMode === 'grid') {
+                return (
+                  <Card key={item.id} style={styles.gridCard}>
+                    <TouchableOpacity activeOpacity={0.7} onPress={() => handleOpenDetail(item)}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 22 }}>{MOOD_EMOJIS[item.mood] || '😊'}</Text>
+                        <Text style={[typography.caption, { color: colors.textMuted, fontSize: 10 }]}>
+                          {item.date}
+                        </Text>
+                      </View>
+                      <Text style={[typography.body, { color: colors.textPrimary, marginTop: 6 }]} numberOfLines={3}>
+                        {item.content}
+                      </Text>
+                    </TouchableOpacity>
+                  </Card>
+                );
+              }
+
+              // 4. Card View Mode (Default)
+              return (
+                <Card key={item.id} style={styles.entryCard}>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => handleOpenDetail(item)}
+                  >
+                    <View style={styles.entryHeader}>
+                      <View style={styles.entryHeaderLeft}>
+                        <View style={[styles.moodCircle, { backgroundColor: colors.accentMint }]}>
+                          <Text style={{ fontSize: 24 }}>{MOOD_EMOJIS[item.mood] || '😊'}</Text>
+                        </View>
+                        <View style={{ marginLeft: 12 }}>
+                          <Text style={[typography.h3, { color: colors.textPrimary }]}>
                             {item.date}
                           </Text>
+                          <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                            Feeling {MOOD_LABELS[item.mood] || 'Good'}
+                          </Text>
                         </View>
-
-                        <Text
-                          style={[styles.compactSnippet, typography.caption, { color: colors.textSecondary }]}
-                          numberOfLines={2}
-                        >
-                          {previewSnippet}
-                        </Text>
-
-                        {tagsArray.length > 0 && (
-                          <View style={styles.compactTagsRow}>
-                            {tagsArray.slice(0, 3).map((tag, idx) => (
-                              <View
-                                key={idx}
-                                style={[styles.compactTag, { backgroundColor: colors.background }]}
-                              >
-                                <Text style={[typography.caption, { color: colors.textSecondary, fontSize: 11 }]}>
-                                  #{tag}
-                                </Text>
-                              </View>
-                            ))}
-                            {tagsArray.length > 3 && (
-                              <Text style={[typography.caption, { color: colors.textMuted, fontSize: 11 }]}>
-                                +{tagsArray.length - 3}
-                              </Text>
-                            )}
-                          </View>
-                        )}
                       </View>
 
-                      <Ionicons
-                        name="chevron-forward"
-                        size={18}
-                        color={colors.textMuted}
-                        style={{ marginLeft: 6 }}
-                      />
+                      <View style={styles.entryActions}>
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleOpenEdit(item);
+                          }}
+                          style={styles.actionIconBtn}
+                          accessibilityLabel="Edit Entry"
+                        >
+                          <Ionicons name="pencil-outline" size={18} color={colors.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeleteEntry(item);
+                          }}
+                          style={styles.actionIconBtn}
+                          accessibilityLabel="Delete Entry"
+                        >
+                          <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </Card>
-                </TouchableOpacity>
+
+                    <Text
+                      style={[styles.entryText, typography.body, { color: colors.textPrimary }]}
+                      numberOfLines={3}
+                    >
+                      {item.content}
+                    </Text>
+
+                    {/* Custom Fields Badges */}
+                    <CustomFieldsBadgeRow entityType="journal" entityId={item.id} />
+
+                    {tags.length > 0 && (
+                      <View style={styles.tagsRow}>
+                        {tags.map((t, idx) => (
+                          <View key={idx} style={[styles.tagBadge, { backgroundColor: colors.accentMint }]}>
+                            <Text style={[typography.caption, { color: colors.primary }]}>#{t}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </Card>
               );
             })
           )}
-          <View style={{ height: 40 }} />
         </ScrollView>
 
-        {/* Compose New Entry Modal */}
+        {/* Compose Reflection Modal */}
         <BottomSheetModal
           visible={isComposeOpen}
           onClose={() => setIsComposeOpen(false)}
           title="Daily Reflection"
         >
-          <View style={styles.modalContent}>
-            <Text style={[styles.sectionHeading, typography.captionBold, { color: colors.textSecondary }]}>
-              HOW WAS YOUR DAY?
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.composerForm}>
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              HOW ARE YOU FEELING TODAY?
             </Text>
             <MoodPicker value={mood} onChange={setMood} />
 
-            <Text style={[styles.sectionHeading, typography.captionBold, { color: colors.textSecondary, marginTop: 14 }]}>
-              YOUR THOUGHTS & WINS *
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 16 }]}>
+              YOUR REFLECTION
             </Text>
             <TextInput
-              value={content}
-              onChangeText={setContent}
-              placeholder="What went well today? What did you learn?"
-              placeholderTextColor={colors.textMuted}
-              multiline
-              numberOfLines={4}
               style={[
-                styles.modalTextArea,
+                styles.composerInput,
                 { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
               ]}
-              autoFocus
+              multiline
+              numberOfLines={6}
+              placeholder="What went well today? What did you learn? What will you do better tomorrow?"
+              placeholderTextColor={colors.textMuted}
+              value={content}
+              onChangeText={setContent}
             />
 
-            <Text style={[styles.sectionHeading, typography.captionBold, { color: colors.textSecondary, marginTop: 14 }]}>
-              TAGS
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 16 }]}>
+              CATEGORIES & TAGS
             </Text>
-            <View style={styles.tagsContainer}>
-              {defaultTags.map((tag) => (
-                <Chip
-                  key={tag}
-                  label={tag}
-                  selected={selectedTags.includes(tag)}
-                  onPress={() => toggleTag(tag)}
-                  style={{ marginRight: 6, marginBottom: 6 }}
-                />
-              ))}
+            <View style={styles.tagGrid}>
+              {availableTags.map((tag) => {
+                const isSelected = selectedTags.includes(tag);
+                return (
+                  <Chip
+                    key={tag}
+                    label={`#${tag}`}
+                    selected={isSelected}
+                    onPress={() => toggleTag(tag)}
+                    style={styles.tagChip}
+                  />
+                );
+              })}
             </View>
+
+            {/* Custom Fields Section */}
+            <CustomFieldsSection
+              entityType="journal"
+              values={addCustomValues}
+              onChange={(k, v) => setAddCustomValues((prev) => ({ ...prev, [k]: v }))}
+            />
 
             <Button
               title="Save Reflection"
               onPress={handleSaveEntry}
-              variant="primary"
               style={{ marginTop: 20 }}
             />
-          </View>
+          </ScrollView>
         </BottomSheetModal>
 
-        {/* Full Detail View Modal (Requirement 4) */}
+        {/* Detail Modal */}
         {selectedEntry && (
           <BottomSheetModal
             visible={!!selectedEntry && !isEditOpen}
             onClose={() => setSelectedEntry(null)}
             title="Reflection Detail"
           >
-            <View style={styles.detailContainer}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailContainer}>
               <View style={styles.detailHeader}>
-                <View style={[styles.detailMoodCircle, { backgroundColor: colors.accentMint }]}>
+                <View style={[styles.moodCircleLarge, { backgroundColor: colors.accentMint }]}>
                   <Text style={{ fontSize: 32 }}>{MOOD_EMOJIS[selectedEntry.mood] || '😊'}</Text>
                 </View>
-                <View style={{ marginLeft: 14, flex: 1 }}>
-                  <Text style={[typography.h2, { color: colors.textPrimary, fontWeight: '700' }]}>
+                <View style={{ marginLeft: 14 }}>
+                  <Text style={[typography.h2, { color: colors.textPrimary }]}>
                     {selectedEntry.date}
                   </Text>
-                  <Text style={[typography.caption, { color: colors.primary, fontWeight: '600', marginTop: 2 }]}>
+                  <Text style={[typography.captionBold, { color: colors.primary }]}>
                     Mood: {MOOD_LABELS[selectedEntry.mood] || 'Good'}
                   </Text>
                 </View>
               </View>
 
-              <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
-                <Text style={[styles.detailBodyText, typography.body, { color: colors.textPrimary }]}>
-                  {selectedEntry.content}
-                </Text>
+              <Text style={[typography.body, { color: colors.textPrimary, lineHeight: 22, marginTop: 16 }]}>
+                {selectedEntry.content}
+              </Text>
 
-                {selectedEntry.tags && (
-                  <View style={styles.detailTagsWrapper}>
-                    {JSON.parse(selectedEntry.tags).map((t: string, idx: number) => (
-                      <View key={idx} style={[styles.detailTagBadge, { backgroundColor: colors.accentMint }]}>
-                        <Text style={[typography.captionBold, { color: colors.primary }]}>
-                          #{t}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </ScrollView>
+              <CustomFieldsBadgeRow entityType="journal" entityId={selectedEntry.id} />
 
-              <View style={styles.detailActionsRow}>
+              <View style={{ flexDirection: 'row', marginTop: 24, gap: 10 }}>
                 <Button
-                  title="Edit Entry"
-                  variant="primary"
+                  title="Edit"
+                  variant="secondary"
                   onPress={() => handleOpenEdit(selectedEntry)}
-                  style={{ flex: 1, marginRight: 8 }}
+                  style={{ flex: 1 }}
                 />
                 <Button
                   title="Delete"
                   variant="ghost"
                   onPress={() => handleDeleteEntry(selectedEntry)}
-                  style={{ flex: 1, marginLeft: 8 }}
+                  style={{ flex: 1 }}
                 />
               </View>
-            </View>
+            </ScrollView>
           </BottomSheetModal>
         )}
 
-        {/* Edit Entry Modal */}
+        {/* Edit Modal */}
         <BottomSheetModal
           visible={isEditOpen}
           onClose={() => setIsEditOpen(false)}
           title="Edit Reflection"
         >
-          <View style={styles.modalContent}>
-            <Text style={[styles.sectionHeading, typography.captionBold, { color: colors.textSecondary }]}>
-              MOOD
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.composerForm}>
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+              UPDATE MOOD
             </Text>
             <MoodPicker value={editMood} onChange={setEditMood} />
 
-            <Text style={[styles.sectionHeading, typography.captionBold, { color: colors.textSecondary, marginTop: 14 }]}>
-              REFLECTION CONTENT *
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 16 }]}>
+              UPDATE CONTENT
             </Text>
             <TextInput
-              value={editContent}
-              onChangeText={setEditContent}
-              multiline
-              numberOfLines={5}
               style={[
-                styles.modalTextArea,
+                styles.composerInput,
                 { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
               ]}
+              multiline
+              numberOfLines={6}
+              value={editContent}
+              onChangeText={setEditContent}
             />
 
-            <Text style={[styles.sectionHeading, typography.captionBold, { color: colors.textSecondary, marginTop: 14 }]}>
-              TAGS
-            </Text>
-            <View style={styles.tagsContainer}>
-              {defaultTags.map((tag) => (
-                <Chip
-                  key={tag}
-                  label={tag}
-                  selected={editTags.includes(tag)}
-                  onPress={() => toggleTag(tag, true)}
-                  style={{ marginRight: 6, marginBottom: 6 }}
-                />
-              ))}
-            </View>
+            {/* Custom Fields Section */}
+            <CustomFieldsSection
+              entityType="journal"
+              values={editCustomValues}
+              onChange={(k, v) => setEditCustomValues((prev) => ({ ...prev, [k]: v }))}
+            />
 
-            <View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
-              <Button
-                title="Cancel"
-                variant="ghost"
-                onPress={() => setIsEditOpen(false)}
-                style={{ flex: 1 }}
-              />
-              <Button
-                title="Save Changes"
-                variant="primary"
-                onPress={handleSaveEdit}
-                style={{ flex: 2 }}
-              />
-            </View>
-          </View>
+            <Button
+              title="Save Changes"
+              onPress={handleSaveEdit}
+              style={{ marginTop: 20 }}
+            />
+          </ScrollView>
         </BottomSheetModal>
       </View>
     </Screen>
@@ -496,6 +574,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   menuBtn: {
     width: 42,
     height: 42,
@@ -508,9 +590,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -518,107 +600,113 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPadding: {
-    paddingBottom: 110,
+    paddingBottom: 40,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   compactCard: {
-    marginBottom: 12,
-    padding: 14,
+    marginBottom: 8,
+    padding: 10,
   },
   compactRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  moodBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  listCard: {
+    marginBottom: 8,
+    padding: 12,
+  },
+  listRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+    justifyContent: 'space-between',
   },
-  compactInfo: {
-    flex: 1,
+  gridCard: {
+    width: '48%',
+    marginBottom: 12,
+    padding: 12,
   },
-  compactHeader: {
+  entryCard: {
+    marginBottom: 14,
+    padding: 16,
+  },
+  entryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 3,
+    marginBottom: 10,
   },
-  compactTitle: {
-    flex: 1,
-    marginRight: 8,
-  },
-  compactSnippet: {
-    lineHeight: 18,
-    marginBottom: 6,
-  },
-  compactTagsRow: {
+  entryHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  moodCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moodCircleLarge: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  entryActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionIconBtn: {
+    padding: 4,
+  },
+  entryText: {
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
+    marginTop: 8,
   },
-  compactTag: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 4,
+  tagBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  modalContent: {
-    paddingBottom: 20,
+  composerForm: {
+    paddingBottom: 24,
   },
-  sectionHeading: {
-    marginBottom: 6,
+  formLabel: {
+    marginBottom: 8,
     letterSpacing: 0.5,
   },
-  modalTextArea: {
-    height: 100,
+  composerInput: {
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
-    textAlignVertical: 'top',
     fontSize: 15,
+    height: 120,
+    textAlignVertical: 'top',
   },
-  tagsContainer: {
+  tagGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 6,
+  },
+  tagChip: {
+    marginBottom: 6,
   },
   detailContainer: {
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  detailMoodCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailScroll: {
-    maxHeight: 280,
-    marginBottom: 16,
-  },
-  detailBodyText: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  detailTagsWrapper: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 16,
-  },
-  detailTagBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  detailActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
   },
 });

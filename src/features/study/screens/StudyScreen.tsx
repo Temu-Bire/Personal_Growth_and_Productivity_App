@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,11 +19,18 @@ import { Button } from '../../../components/ui/Button';
 import { Checkbox } from '../../../components/ui/Checkbox';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useTheme } from '../../../hooks/useTheme';
+import { useCustomizationStore } from '../../../store/useCustomizationStore';
+import { CustomizationRepository } from '../../customization/customization.repository';
+import { ViewModeSwitcher } from '../../customization/components/ViewModeSwitcher';
+import { CustomFieldsSection } from '../../customization/components/CustomFieldsSection';
+import { CustomFieldsBadgeRow } from '../../customization/components/CustomFieldsBadgeRow';
+import { sortItemsByLayout } from '../../customization/layout.utils';
 import { StudyRepository, Subject, StudyTopic, StudyScheduleSession } from '../study.repository';
 
 export const StudyScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
+  const pageLayout = useCustomizationStore((state) => state.pageLayouts['study']);
 
   const [activeTab, setActiveTab] = useState<'subjects' | 'schedule'>('subjects');
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -35,11 +42,13 @@ export const StudyScreen: React.FC = () => {
   const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
   const [newSubjName, setNewSubjName] = useState('');
   const [newSubjTopics, setNewSubjTopics] = useState('');
+  const [addCustomValues, setAddCustomValues] = useState<Record<string, any>>({});
 
   // Edit Subject Modal
   const [isEditSubjectOpen, setIsEditSubjectOpen] = useState(false);
   const [editingSubj, setEditingSubj] = useState<Subject | null>(null);
   const [editSubjName, setEditSubjName] = useState('');
+  const [editCustomValues, setEditCustomValues] = useState<Record<string, any>>({});
 
   // Add Topic inline
   const [addingTopicForSubjId, setAddingTopicForSubjId] = useState<string | null>(null);
@@ -79,19 +88,28 @@ export const StudyScreen: React.FC = () => {
 
   const handleCreateSubject = () => {
     if (!newSubjName.trim()) {
-      Alert.alert('Required', 'Please enter subject name.');
+      Alert.alert('Required', 'Please enter a subject name.');
       return;
     }
 
-    const topicsArray = newSubjTopics
+    const topicsList = newSubjTopics
       .split('\n')
       .map((t) => t.trim())
       .filter(Boolean);
 
-    StudyRepository.createSubject(newSubjName.trim(), '#1E8E4E', topicsArray);
+    const created = StudyRepository.createSubject(
+      newSubjName.trim(),
+      '#1E8E4E',
+      topicsList
+    );
+
+    if (created && Object.keys(addCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('study', created.id, addCustomValues);
+    }
 
     setNewSubjName('');
     setNewSubjTopics('');
+    setAddCustomValues({});
     setIsAddSubjectOpen(false);
     loadData();
   };
@@ -99,16 +117,27 @@ export const StudyScreen: React.FC = () => {
   const handleOpenEditSubject = (subj: Subject) => {
     setEditingSubj(subj);
     setEditSubjName(subj.name);
+    const existingVals = CustomizationRepository.getFieldValues('study', subj.id);
+    setEditCustomValues(existingVals);
     setIsEditSubjectOpen(true);
   };
 
   const handleSaveEditSubject = () => {
     if (!editingSubj || !editSubjName.trim()) {
-      Alert.alert('Required', 'Please enter subject name.');
+      Alert.alert('Required', 'Please enter a subject name.');
       return;
     }
 
-    StudyRepository.updateSubject(editingSubj.id, editSubjName.trim());
+    StudyRepository.updateSubject(
+      editingSubj.id,
+      editSubjName.trim(),
+      editingSubj.color || '#1E8E4E'
+    );
+
+    if (Object.keys(editCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('study', editingSubj.id, editCustomValues);
+    }
+
     setIsEditSubjectOpen(false);
     setEditingSubj(null);
     loadData();
@@ -117,7 +146,7 @@ export const StudyScreen: React.FC = () => {
   const handleDeleteSubject = (subj: Subject) => {
     Alert.alert(
       'Delete Subject',
-      `Are you sure you want to delete "${subj.name}" and all its topics and study sessions? This cannot be undone.`,
+      `Are you sure you want to delete "${subj.name}" and all its topics?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -186,6 +215,12 @@ export const StudyScreen: React.FC = () => {
 
   const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+  const sortedSubjects = useMemo(() => {
+    return sortItemsByLayout(subjects, pageLayout);
+  }, [subjects, pageLayout]);
+
+  const viewMode = pageLayout?.viewMode || 'card';
+
   return (
     <Screen backgroundColor={colors.background}>
       <View style={styles.container}>
@@ -205,14 +240,18 @@ export const StudyScreen: React.FC = () => {
               Study Plan
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => (activeTab === 'subjects' ? setIsAddSubjectOpen(true) : setIsAddSessionOpen(true))}
-            style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
-            accessibilityRole="button"
-            accessibilityLabel="Add"
-          >
-            <Ionicons name="add" size={24} color={colors.primary} />
-          </TouchableOpacity>
+
+          <View style={styles.headerRight}>
+            <ViewModeSwitcher pageKey="study" />
+            <TouchableOpacity
+              onPress={() => (activeTab === 'subjects' ? setIsAddSubjectOpen(true) : setIsAddSessionOpen(true))}
+              style={[styles.addBtn, { backgroundColor: colors.accentMint, marginLeft: 8 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Add"
+            >
+              <Ionicons name="add" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Tab Switcher */}
@@ -222,18 +261,21 @@ export const StudyScreen: React.FC = () => {
             { key: 'schedule', label: 'Schedule' },
           ]}
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab)}
-          style={{ marginBottom: 16 }}
+          onTabChange={setActiveTab}
+          style={{ marginBottom: 14 }}
         />
 
         {activeTab === 'subjects' ? (
           /* Subjects Tab */
           <ScrollView
             style={styles.list}
-            contentContainerStyle={styles.scrollListPadding}
+            contentContainerStyle={[
+              styles.scrollListPadding,
+              viewMode === 'grid' && styles.gridContainer,
+            ]}
             showsVerticalScrollIndicator={false}
           >
-            {subjects.length === 0 ? (
+            {sortedSubjects.length === 0 ? (
               <EmptyState
                 icon="school-outline"
                 title="No subjects yet"
@@ -242,10 +284,88 @@ export const StudyScreen: React.FC = () => {
                 onAction={() => setIsAddSubjectOpen(true)}
               />
             ) : (
-              subjects.map((subj) => {
+              sortedSubjects.map((subj) => {
                 const isExpanded = expandedSubjId === subj.id;
                 const topics = topicsMap[subj.id] || [];
 
+                // 1. Compact View Mode
+                if (viewMode === 'compact') {
+                  return (
+                    <Card key={subj.id} style={styles.compactCard}>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => toggleExpand(subj.id)}
+                        style={styles.compactRow}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                            {subj.name}
+                          </Text>
+                          <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                            {subj.completedTopicsCount}/{subj.topicsCount} topics
+                          </Text>
+                        </View>
+                        <Text style={[typography.captionBold, { color: colors.primary }]}>
+                          {subj.progressPercent}%
+                        </Text>
+                      </TouchableOpacity>
+                    </Card>
+                  );
+                }
+
+                // 2. List View Mode
+                if (viewMode === 'list') {
+                  return (
+                    <Card key={subj.id} style={styles.listCard}>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => toggleExpand(subj.id)}
+                        style={styles.listRow}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                            {subj.name}
+                          </Text>
+                          <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                            {subj.completedTopicsCount} of {subj.topicsCount} topics done
+                          </Text>
+                        </View>
+                        <Text style={[typography.h3, { color: colors.primary, fontWeight: '800' }]}>
+                          {subj.progressPercent}%
+                        </Text>
+                      </TouchableOpacity>
+                    </Card>
+                  );
+                }
+
+                // 3. Grid View Mode
+                if (viewMode === 'grid') {
+                  return (
+                    <Card key={subj.id} style={styles.gridCard}>
+                      <TouchableOpacity activeOpacity={0.7} onPress={() => toggleExpand(subj.id)}>
+                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={2}>
+                          {subj.name}
+                        </Text>
+                        <ProgressBar
+                          progress={subj.progressPercent || 0}
+                          height={4}
+                          color={subj.color || colors.primary}
+                          style={{ marginVertical: 8 }}
+                        />
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text style={[typography.captionBold, { color: colors.primary }]}>
+                            {subj.progressPercent}%
+                          </Text>
+                          <Text style={[typography.caption, { color: colors.textMuted, fontSize: 10 }]}>
+                            {subj.completedTopicsCount}/{subj.topicsCount}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    </Card>
+                  );
+                }
+
+                // 4. Card View Mode (Default)
                 return (
                   <Card key={subj.id} style={styles.subjectCard}>
                     <TouchableOpacity
@@ -275,6 +395,9 @@ export const StudyScreen: React.FC = () => {
                         color={subj.color || colors.primary}
                         style={{ marginTop: 10, marginBottom: 8 }}
                       />
+
+                      {/* Custom Fields Badges */}
+                      <CustomFieldsBadgeRow entityType="study" entityId={subj.id} />
 
                       <View style={styles.subMeta}>
                         <Text style={[typography.caption, { color: colors.textMuted }]}>
@@ -440,7 +563,7 @@ export const StudyScreen: React.FC = () => {
           onClose={() => setIsAddSubjectOpen(false)}
           title="Create New Subject"
         >
-          <View style={styles.modalForm}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalForm}>
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
               Subject Name *
             </Text>
@@ -455,7 +578,14 @@ export const StudyScreen: React.FC = () => {
               ]}
             />
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
+            {/* Custom Fields Section */}
+            <CustomFieldsSection
+              entityType="study"
+              values={addCustomValues}
+              onChange={(k, v) => setAddCustomValues((prev) => ({ ...prev, [k]: v }))}
+            />
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 10 }]}>
               Topics / Chapters (one per line)
             </Text>
             <TextInput
@@ -477,7 +607,7 @@ export const StudyScreen: React.FC = () => {
               onPress={handleCreateSubject}
               style={{ marginTop: 16 }}
             />
-          </View>
+          </ScrollView>
         </BottomSheetModal>
 
         {/* Edit Subject Modal */}
@@ -486,7 +616,7 @@ export const StudyScreen: React.FC = () => {
           onClose={() => setIsEditSubjectOpen(false)}
           title="Edit Subject"
         >
-          <View style={styles.modalForm}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalForm}>
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
               Subject Name *
             </Text>
@@ -497,6 +627,13 @@ export const StudyScreen: React.FC = () => {
                 styles.modalInput,
                 { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
               ]}
+            />
+
+            {/* Custom Fields Section */}
+            <CustomFieldsSection
+              entityType="study"
+              values={editCustomValues}
+              onChange={(k, v) => setEditCustomValues((prev) => ({ ...prev, [k]: v }))}
             />
 
             <View style={{ flexDirection: 'row', marginTop: 16, gap: 10 }}>
@@ -513,7 +650,7 @@ export const StudyScreen: React.FC = () => {
                 style={{ flex: 2 }}
               />
             </View>
-          </View>
+          </ScrollView>
         </BottomSheetModal>
 
         {/* Add Session Modal */}
@@ -549,53 +686,32 @@ export const StudyScreen: React.FC = () => {
               ))}
             </ScrollView>
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Day of Week
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-              {DAY_NAMES.map((day, idx) => (
-                <TouchableOpacity
-                  key={day}
-                  onPress={() => setSessionDayOfWeek(idx)}
-                  style={[
-                    styles.subjPill,
-                    sessionDayOfWeek === idx && { backgroundColor: colors.accentMint, borderColor: colors.primary },
-                    { borderColor: colors.border },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      typography.captionBold,
-                      { color: sessionDayOfWeek === idx ? colors.primary : colors.textSecondary },
-                    ]}
-                  >
-                    {day.substring(0, 3)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1 }}>
+            <View style={styles.row}>
+              <View style={{ flex: 1, marginRight: 8 }}>
                 <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
                   Start Time
                 </Text>
                 <TextInput
                   value={sessionStartTime}
                   onChangeText={setSessionStartTime}
+                  placeholder="09:00 AM"
+                  placeholderTextColor={colors.textMuted}
                   style={[
                     styles.modalInput,
                     { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
                   ]}
                 />
               </View>
-              <View style={{ flex: 1 }}>
+
+              <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
                   End Time
                 </Text>
                 <TextInput
                   value={sessionEndTime}
                   onChangeText={setSessionEndTime}
+                  placeholder="10:30 AM"
+                  placeholderTextColor={colors.textMuted}
                   style={[
                     styles.modalInput,
                     { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
@@ -607,7 +723,7 @@ export const StudyScreen: React.FC = () => {
             <Button
               title="Schedule Session"
               onPress={handleCreateSession}
-              style={{ marginTop: 12 }}
+              style={{ marginTop: 14 }}
             />
           </View>
         </BottomSheetModal>
@@ -632,6 +748,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   menuBtn: {
     width: 42,
     height: 42,
@@ -644,9 +764,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -654,10 +774,38 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollListPadding: {
-    paddingBottom: 110,
+    paddingBottom: 40,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  compactCard: {
+    marginBottom: 8,
+    padding: 10,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  listCard: {
+    marginBottom: 8,
+    padding: 12,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gridCard: {
+    width: '48%',
+    marginBottom: 12,
+    padding: 12,
   },
   subjectCard: {
-    marginBottom: 12,
+    marginBottom: 14,
     padding: 16,
   },
   subjectHeader: {
@@ -668,6 +816,7 @@ const styles = StyleSheet.create({
   subjectTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   colorIndicator: {
     width: 10,
@@ -682,6 +831,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 6,
   },
   headerActions: {
     flexDirection: 'row',
@@ -693,13 +843,13 @@ const styles = StyleSheet.create({
   },
   topicsList: {
     borderTopWidth: 1,
-    paddingTop: 10,
-    marginTop: 10,
+    paddingTop: 12,
+    marginTop: 12,
   },
   topicRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 4,
+    paddingVertical: 6,
   },
   topicTitle: {
     marginLeft: 10,
@@ -719,9 +869,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   topicAddBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
@@ -729,8 +879,7 @@ const styles = StyleSheet.create({
   addTopicTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    marginTop: 4,
+    paddingVertical: 8,
   },
   scheduleCard: {
     marginBottom: 10,
@@ -744,10 +893,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sessDetails: {
     flex: 1,
+    marginLeft: 12,
   },
   modalForm: {
     paddingBottom: 24,
@@ -762,7 +913,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     fontSize: 16,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   textArea: {
     height: 90,
@@ -770,10 +921,13 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   subjPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    marginRight: 8,
+    marginRight: 6,
+  },
+  row: {
+    flexDirection: 'row',
   },
 });

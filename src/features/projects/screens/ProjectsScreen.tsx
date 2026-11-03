@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,22 +18,32 @@ import { Button } from '../../../components/ui/Button';
 import { Checkbox } from '../../../components/ui/Checkbox';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useTheme } from '../../../hooks/useTheme';
+import { useCustomizationStore } from '../../../store/useCustomizationStore';
+import { CustomizationRepository } from '../../customization/customization.repository';
+import { ViewModeSwitcher } from '../../customization/components/ViewModeSwitcher';
+import { CustomFieldsSection } from '../../customization/components/CustomFieldsSection';
+import { CustomFieldsBadgeRow } from '../../customization/components/CustomFieldsBadgeRow';
+import { sortItemsByLayout } from '../../customization/layout.utils';
 import { ProjectsRepository, Project, ProjectTask } from '../projects.repository';
 
 export const ProjectsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
+  const pageLayout = useCustomizationStore((state) => state.pageLayouts['projects']);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [expandedPrjId, setExpandedPrjId] = useState<string | null>(null);
   const [tasksMap, setTasksMap] = useState<Record<string, ProjectTask[]>>({});
+  const [categories, setCategories] = useState<string[]>(['Mobile App', 'Web Dev', 'Career', 'Personal']);
 
   // Add Project Modal
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('2026-12-15');
   const [color, setColor] = useState('#1E8E4E');
+  const [selectedCategory, setSelectedCategory] = useState('Mobile App');
   const [initialTasks, setInitialTasks] = useState('');
+  const [addCustomValues, setAddCustomValues] = useState<Record<string, any>>({});
 
   // Edit Project Modal
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -41,6 +51,7 @@ export const ProjectsScreen: React.FC = () => {
   const [editTitle, setEditTitle] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [editStatus, setEditStatus] = useState<'planning' | 'in_progress' | 'completed' | 'on_hold'>('in_progress');
+  const [editCustomValues, setEditCustomValues] = useState<Record<string, any>>({});
 
   // New subtask state
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
@@ -55,6 +66,14 @@ export const ProjectsScreen: React.FC = () => {
       map[p.id] = ProjectsRepository.getProjectTasks(p.id);
     });
     setTasksMap(map);
+
+    // Load custom categories for Projects
+    const customCats = CustomizationRepository.getCategories('projects');
+    const baseCats = ['Mobile App', 'Web Dev', 'Career', 'Personal'];
+    customCats.forEach((c) => {
+      if (!baseCats.includes(c.name)) baseCats.push(c.name);
+    });
+    setCategories(baseCats);
   }, []);
 
   useFocusEffect(
@@ -79,15 +98,20 @@ export const ProjectsScreen: React.FC = () => {
       .map((t) => t.trim())
       .filter(Boolean);
 
-    ProjectsRepository.create({
+    const created = ProjectsRepository.create({
       title: title.trim(),
       dueDate,
       color,
       initialTasks: tasksList,
     });
 
+    if (created && Object.keys(addCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('projects', created.id, addCustomValues);
+    }
+
     setTitle('');
     setInitialTasks('');
+    setAddCustomValues({});
     setIsAddOpen(false);
     loadProjects();
   };
@@ -97,6 +121,8 @@ export const ProjectsScreen: React.FC = () => {
     setEditTitle(project.title);
     setEditDueDate(project.due_date);
     setEditStatus(project.status);
+    const existingVals = CustomizationRepository.getFieldValues('projects', project.id);
+    setEditCustomValues(existingVals);
     setIsEditOpen(true);
   };
 
@@ -111,6 +137,10 @@ export const ProjectsScreen: React.FC = () => {
       dueDate: editDueDate,
       status: editStatus,
     });
+
+    if (Object.keys(editCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('projects', editingProject.id, editCustomValues);
+    }
 
     setIsEditOpen(false);
     setEditingProject(null);
@@ -152,6 +182,19 @@ export const ProjectsScreen: React.FC = () => {
     setExpandedPrjId(expandedPrjId === prjId ? null : prjId);
   };
 
+  const sortedProjects = useMemo(() => {
+    return sortItemsByLayout(projects, pageLayout);
+  }, [projects, pageLayout]);
+
+  const viewMode = pageLayout?.viewMode || 'card';
+  const visibleFields = pageLayout?.visibleFields || [
+    'show_dates',
+    'show_categories',
+    'show_progress',
+    'show_notes',
+    'show_status',
+  ];
+
   return (
     <Screen backgroundColor={colors.background}>
       <View style={styles.container}>
@@ -171,23 +214,30 @@ export const ProjectsScreen: React.FC = () => {
               My Projects
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setIsAddOpen(true)}
-            style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
-            accessibilityRole="button"
-            accessibilityLabel="Add Project"
-          >
-            <Ionicons name="add" size={24} color={colors.primary} />
-          </TouchableOpacity>
+
+          <View style={styles.headerRight}>
+            <ViewModeSwitcher pageKey="projects" />
+            <TouchableOpacity
+              onPress={() => setIsAddOpen(true)}
+              style={[styles.addBtn, { backgroundColor: colors.accentMint, marginLeft: 8 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Add Project"
+            >
+              <Ionicons name="add" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Project List */}
         <ScrollView
           style={styles.list}
-          contentContainerStyle={styles.scrollListPadding}
+          contentContainerStyle={[
+            styles.scrollListPadding,
+            viewMode === 'grid' && styles.gridContainer,
+          ]}
           showsVerticalScrollIndicator={false}
         >
-          {projects.length === 0 ? (
+          {sortedProjects.length === 0 ? (
             <EmptyState
               icon="folder-open-outline"
               title="No projects yet"
@@ -196,10 +246,96 @@ export const ProjectsScreen: React.FC = () => {
               onAction={() => setIsAddOpen(true)}
             />
           ) : (
-            projects.map((p) => {
+            sortedProjects.map((p) => {
               const isExpanded = expandedPrjId === p.id;
               const tasks = tasksMap[p.id] || [];
 
+              // 1. Compact View Mode
+              if (viewMode === 'compact') {
+                return (
+                  <Card key={p.id} style={styles.compactCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => toggleExpand(p.id)}
+                      style={styles.compactRow}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                          {p.title}
+                        </Text>
+                        {visibleFields.includes('show_dates') && (
+                          <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                            Due: {p.due_date}
+                          </Text>
+                        )}
+                      </View>
+                      {visibleFields.includes('show_progress') && (
+                        <Text style={[typography.captionBold, { color: colors.primary, marginLeft: 8 }]}>
+                          {p.progressPercent}%
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </Card>
+                );
+              }
+
+              // 2. List View Mode
+              if (viewMode === 'list') {
+                return (
+                  <Card key={p.id} style={styles.listCard}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => toggleExpand(p.id)}
+                      style={styles.listRow}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                          {p.title}
+                        </Text>
+                        <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                          {p.status} · Due: {p.due_date}
+                        </Text>
+                      </View>
+                      {visibleFields.includes('show_progress') && (
+                        <Text style={[typography.h3, { color: colors.primary, fontWeight: '800' }]}>
+                          {p.progressPercent}%
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </Card>
+                );
+              }
+
+              // 3. Grid View Mode
+              if (viewMode === 'grid') {
+                return (
+                  <Card key={p.id} style={styles.gridCard}>
+                    <TouchableOpacity activeOpacity={0.7} onPress={() => toggleExpand(p.id)}>
+                      <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={2}>
+                        {p.title}
+                      </Text>
+                      <ProgressBar
+                        progress={p.progressPercent || 0}
+                        height={4}
+                        color={p.color || colors.primary}
+                        style={{ marginVertical: 8 }}
+                      />
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={[typography.captionBold, { color: colors.primary }]}>
+                          {p.progressPercent}%
+                        </Text>
+                        {visibleFields.includes('show_dates') && (
+                          <Text style={[typography.caption, { color: colors.textMuted, fontSize: 10 }]}>
+                            {p.due_date}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  </Card>
+                );
+              }
+
+              // 4. Card View Mode (Default)
               return (
                 <Card key={p.id} style={styles.projectCard}>
                   <TouchableOpacity
@@ -211,50 +347,63 @@ export const ProjectsScreen: React.FC = () => {
                         <Text style={[styles.projectTitle, typography.h2, { color: colors.textPrimary }]}>
                           {p.title}
                         </Text>
-                        <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
-                          {p.progressPercent}% · Due: {p.due_date}
-                        </Text>
+                        {visibleFields.includes('show_dates') && (
+                          <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
+                            {p.progressPercent}% · Due: {p.due_date}
+                          </Text>
+                        )}
                       </View>
 
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          {
-                            backgroundColor:
-                              p.status === 'completed'
-                                ? colors.accentMint
-                                : colors.orangeSoft,
-                          },
-                        ]}
-                      >
-                        <Text
+                      {visibleFields.includes('show_status') && (
+                        <View
                           style={[
-                            typography.captionBold,
+                            styles.statusBadge,
                             {
-                              color:
+                              backgroundColor:
                                 p.status === 'completed'
-                                ? colors.primary
-                                : colors.orange,
+                                  ? colors.accentMint
+                                  : p.status === 'in_progress'
+                                  ? colors.orangeSoft
+                                  : colors.surface,
                             },
                           ]}
                         >
-                          {p.status === 'completed' ? 'Completed' : 'Active'}
-                        </Text>
-                      </View>
+                          <Text
+                            style={[
+                              typography.captionBold,
+                              {
+                                color:
+                                  p.status === 'completed'
+                                    ? colors.primary
+                                    : p.status === 'in_progress'
+                                    ? colors.orange
+                                    : colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            {p.status.replace('_', ' ').toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
-                    <ProgressBar
-                      progress={p.progressPercent || 0}
-                      height={6}
-                      color={p.color || colors.primary}
-                      style={{ marginTop: 12, marginBottom: 8 }}
-                    />
+                    {visibleFields.includes('show_progress') && (
+                      <ProgressBar
+                        progress={p.progressPercent || 0}
+                        height={6}
+                        color={p.color || colors.primary}
+                        style={{ marginVertical: 10 }}
+                      />
+                    )}
+
+                    {/* Custom fields badges */}
+                    <CustomFieldsBadgeRow entityType="projects" entityId={p.id} />
 
                     <View style={styles.projectFooter}>
                       <Text style={[typography.caption, { color: colors.textMuted }]}>
-                        {p.completedTasksCount} of {p.tasksCount} tasks completed
+                        {p.completedTasksCount} of {p.tasksCount} deliverables done
                       </Text>
-                      <View style={styles.headerActions}>
+                      <View style={styles.actionsRow}>
                         <TouchableOpacity
                           onPress={(e) => {
                             e.stopPropagation();
@@ -284,20 +433,19 @@ export const ProjectsScreen: React.FC = () => {
                     </View>
                   </TouchableOpacity>
 
-                  {/* Tasks List */}
+                  {/* Subtasks breakdown */}
                   {isExpanded && (
-                    <View style={[styles.tasksList, { borderTopColor: colors.border }]}>
+                    <View style={[styles.subtasksBox, { borderTopColor: colors.border }]}>
                       {tasks.map((task) => (
-                        <View key={task.id} style={styles.taskRow}>
+                        <View key={task.id} style={styles.subtaskItem}>
                           <Checkbox
                             checked={task.is_completed === 1}
                             onToggle={() => handleToggleTask(task.id)}
-                            size={18}
                           />
                           <Text
                             style={[
-                              styles.taskTitle,
-                              typography.body,
+                              styles.subtaskTitle,
+                              typography.bodyMedium,
                               {
                                 color: task.is_completed === 1 ? colors.textMuted : colors.textPrimary,
                                 textDecorationLine: task.is_completed === 1 ? 'line-through' : 'none',
@@ -308,48 +456,40 @@ export const ProjectsScreen: React.FC = () => {
                           </Text>
                           <TouchableOpacity
                             onPress={() => handleDeleteSubtask(task.id)}
-                            style={{ padding: 4 }}
+                            style={styles.deleteSubtaskBtn}
                           >
-                            <Ionicons name="close-circle-outline" size={16} color={colors.textMuted} />
+                            <Ionicons name="close" size={16} color={colors.textMuted} />
                           </TouchableOpacity>
                         </View>
                       ))}
 
-                      {/* Add subtask inline */}
                       {addingTaskForPrjId === p.id ? (
                         <View style={styles.addSubtaskRow}>
                           <TextInput
                             value={newSubtaskTitle}
                             onChangeText={setNewSubtaskTitle}
-                            placeholder="New subtask title..."
+                            placeholder="Deliverable title..."
                             placeholderTextColor={colors.textMuted}
                             style={[
                               styles.subtaskInput,
                               { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
                             ]}
-                            autoFocus
                           />
-                          <TouchableOpacity
+                          <Button
+                            title="Add"
+                            size="sm"
                             onPress={() => handleAddSubtask(p.id)}
-                            style={[styles.subtaskAddBtn, { backgroundColor: colors.primary }]}
-                          >
-                            <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => setAddingTaskForPrjId(null)}
-                            style={{ padding: 6 }}
-                          >
-                            <Ionicons name="close" size={18} color={colors.textMuted} />
-                          </TouchableOpacity>
+                            style={{ marginLeft: 6 }}
+                          />
                         </View>
                       ) : (
                         <TouchableOpacity
                           onPress={() => setAddingTaskForPrjId(p.id)}
-                          style={styles.addTaskTrigger}
+                          style={styles.addDeliverableBtn}
                         >
                           <Ionicons name="add" size={16} color={colors.primary} />
                           <Text style={[typography.captionBold, { color: colors.primary, marginLeft: 4 }]}>
-                            Add Subtask
+                            Add Deliverable
                           </Text>
                         </TouchableOpacity>
                       )}
@@ -368,14 +508,14 @@ export const ProjectsScreen: React.FC = () => {
           onClose={() => setIsAddOpen(false)}
           title="Create New Project"
         >
-          <View style={styles.modalForm}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalForm}>
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Project Title *
+              Project Name *
             </Text>
             <TextInput
               value={title}
               onChangeText={setTitle}
-              placeholder="e.g. AI Portfolio Website"
+              placeholder="e.g. Mobile App Redesign"
               placeholderTextColor={colors.textMuted}
               style={[
                 styles.modalInput,
@@ -384,7 +524,7 @@ export const ProjectsScreen: React.FC = () => {
             />
 
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Target Due Date (YYYY-MM-DD)
+              Target Date (YYYY-MM-DD)
             </Text>
             <TextInput
               value={dueDate}
@@ -398,14 +538,47 @@ export const ProjectsScreen: React.FC = () => {
             />
 
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Subtasks / Milestones (one per line)
+              Category
+            </Text>
+            <View style={styles.catGrid}>
+              {categories.map((c) => (
+                <TouchableOpacity
+                  key={c}
+                  onPress={() => setSelectedCategory(c)}
+                  style={[
+                    styles.catChip,
+                    selectedCategory === c && { backgroundColor: colors.primary, borderColor: colors.primary },
+                    { borderColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.captionBold,
+                      { color: selectedCategory === c ? '#FFFFFF' : colors.textPrimary },
+                    ]}
+                  >
+                    {c}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Custom Fields Section */}
+            <CustomFieldsSection
+              entityType="projects"
+              values={addCustomValues}
+              onChange={(k, v) => setAddCustomValues((prev) => ({ ...prev, [k]: v }))}
+            />
+
+            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 10 }]}>
+              Deliverables / Subtasks (one per line)
             </Text>
             <TextInput
               value={initialTasks}
               onChangeText={setInitialTasks}
               multiline
               numberOfLines={4}
-              placeholder="Design mockups&#10;Develop core UI&#10;Testing and launch"
+              placeholder="UI Mockups&#10;Database schema&#10;Beta deployment"
               placeholderTextColor={colors.textMuted}
               style={[
                 styles.modalInput,
@@ -419,7 +592,7 @@ export const ProjectsScreen: React.FC = () => {
               onPress={handleCreateProject}
               style={{ marginTop: 16 }}
             />
-          </View>
+          </ScrollView>
         </BottomSheetModal>
 
         {/* Edit Project Modal */}
@@ -428,9 +601,9 @@ export const ProjectsScreen: React.FC = () => {
           onClose={() => setIsEditOpen(false)}
           title="Edit Project"
         >
-          <View style={styles.modalForm}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalForm}>
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Project Title *
+              Project Name *
             </Text>
             <TextInput
               value={editTitle}
@@ -442,7 +615,7 @@ export const ProjectsScreen: React.FC = () => {
             />
 
             <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Target Due Date (YYYY-MM-DD)
+              Target Date (YYYY-MM-DD)
             </Text>
             <TextInput
               value={editDueDate}
@@ -453,33 +626,14 @@ export const ProjectsScreen: React.FC = () => {
               ]}
             />
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Status
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-              {(['in_progress', 'completed', 'planning', 'on_hold'] as const).map((st) => (
-                <TouchableOpacity
-                  key={st}
-                  onPress={() => setEditStatus(st)}
-                  style={[
-                    styles.statusSelectBtn,
-                    editStatus === st && { backgroundColor: colors.accentMint, borderColor: colors.primary },
-                    { borderColor: colors.border },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      typography.captionBold,
-                      { color: editStatus === st ? colors.primary : colors.textSecondary },
-                    ]}
-                  >
-                    {st === 'in_progress' ? 'Active' : st.charAt(0).toUpperCase() + st.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {/* Custom Fields Section */}
+            <CustomFieldsSection
+              entityType="projects"
+              values={editCustomValues}
+              onChange={(k, v) => setEditCustomValues((prev) => ({ ...prev, [k]: v }))}
+            />
 
-            <View style={{ flexDirection: 'row', marginTop: 16, gap: 10 }}>
+            <View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
               <Button
                 title="Cancel"
                 variant="ghost"
@@ -493,7 +647,7 @@ export const ProjectsScreen: React.FC = () => {
                 style={{ flex: 2 }}
               />
             </View>
-          </View>
+          </ScrollView>
         </BottomSheetModal>
       </View>
     </Screen>
@@ -516,6 +670,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   menuBtn: {
     width: 42,
     height: 42,
@@ -528,9 +686,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -538,7 +696,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollListPadding: {
-    paddingBottom: 110,
+    paddingBottom: 40,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  compactCard: {
+    marginBottom: 8,
+    padding: 10,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  listCard: {
+    marginBottom: 8,
+    padding: 12,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gridCard: {
+    width: '48%',
+    marginBottom: 12,
+    padding: 12,
   },
   projectCard: {
     marginBottom: 12,
@@ -553,16 +739,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   projectFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 6,
   },
-  headerActions: {
+  actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -570,19 +757,22 @@ const styles = StyleSheet.create({
   actionIconBtn: {
     padding: 4,
   },
-  tasksList: {
+  subtasksBox: {
     borderTopWidth: 1,
     paddingTop: 12,
     marginTop: 12,
   },
-  taskRow: {
+  subtaskItem: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: 4,
   },
-  taskTitle: {
+  subtaskTitle: {
     marginLeft: 10,
     flex: 1,
+  },
+  deleteSubtaskBtn: {
+    padding: 4,
   },
   addSubtaskRow: {
     flexDirection: 'row',
@@ -597,19 +787,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 14,
   },
-  subtaskAddBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  addTaskTrigger: {
+  addDeliverableBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    marginTop: 4,
+    paddingVertical: 8,
   },
   modalForm: {
     paddingBottom: 24,
@@ -626,17 +807,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 14,
   },
+  catGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+  },
+  catChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
   textArea: {
-    height: 100,
+    height: 90,
     textAlignVertical: 'top',
     paddingTop: 10,
-  },
-  statusSelectBtn: {
-    flex: 1,
-    height: 38,
-    borderWidth: 1,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

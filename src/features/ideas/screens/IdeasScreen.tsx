@@ -16,19 +16,25 @@ import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useTheme } from '../../../hooks/useTheme';
+import { useCustomizationStore } from '../../../store/useCustomizationStore';
+import { CustomizationRepository } from '../../customization/customization.repository';
+import { ViewModeSwitcher } from '../../customization/components/ViewModeSwitcher';
+import { CustomFieldsSection } from '../../customization/components/CustomFieldsSection';
+import { CustomFieldsBadgeRow } from '../../customization/components/CustomFieldsBadgeRow';
+import { sortItemsByLayout } from '../../customization/layout.utils';
 import { IdeasRepository } from '../ideas.repository';
 import { Idea } from '../ideas.types';
-
-const CATEGORIES = ['All', 'App', 'Career', 'Creative', 'Business', 'Personal', 'General'];
 
 export const IdeasScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
+  const pageLayout = useCustomizationStore((state) => state.pageLayouts['ideas']);
 
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+  const [categories, setCategories] = useState<string[]>(['All', 'App', 'Career', 'Creative', 'Business', 'Personal', 'General']);
 
   // Modal State
   const [modalVisible, setModalVisible] = useState(false);
@@ -39,10 +45,19 @@ export const IdeasScreen: React.FC = () => {
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [tagsInput, setTagsInput] = useState('');
   const [isPinned, setIsPinned] = useState(false);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
 
   const loadIdeas = useCallback(() => {
     const list = IdeasRepository.getAll(search);
     setIdeas(list);
+
+    // Merge custom categories
+    const customCats = CustomizationRepository.getCategories('ideas');
+    const base = ['All', 'App', 'Career', 'Creative', 'Business', 'Personal', 'General'];
+    customCats.forEach((c) => {
+      if (!base.includes(c.name)) base.push(c.name);
+    });
+    setCategories(base);
   }, [search]);
 
   useFocusEffect(
@@ -52,11 +67,23 @@ export const IdeasScreen: React.FC = () => {
   );
 
   const filteredIdeas = useMemo(() => {
-    if (selectedCategory === 'All') return ideas;
-    return ideas.filter(
-      (item) => item.category.toLowerCase() === selectedCategory.toLowerCase()
-    );
-  }, [ideas, selectedCategory]);
+    let list = ideas;
+    if (selectedCategory !== 'All') {
+      list = ideas.filter(
+        (item) => item.category.toLowerCase() === selectedCategory.toLowerCase()
+      );
+    }
+    return sortItemsByLayout(list, pageLayout);
+  }, [ideas, selectedCategory, pageLayout]);
+
+  const viewMode = pageLayout?.viewMode || 'card';
+  const visibleFields = pageLayout?.visibleFields || [
+    'show_dates',
+    'show_categories',
+    'show_progress',
+    'show_notes',
+    'show_status',
+  ];
 
   const handleOpenAdd = () => {
     setEditingIdea(null);
@@ -66,6 +93,7 @@ export const IdeasScreen: React.FC = () => {
     setIsCategoryDropdownOpen(false);
     setTagsInput('');
     setIsPinned(false);
+    setCustomFieldValues({});
     setModalVisible(true);
   };
 
@@ -78,6 +106,8 @@ export const IdeasScreen: React.FC = () => {
     const parsedTags: string[] = idea.tags ? JSON.parse(idea.tags) : [];
     setTagsInput(parsedTags.join(', '));
     setIsPinned(idea.is_pinned === 1);
+    const existingVals = CustomizationRepository.getFieldValues('ideas', idea.id);
+    setCustomFieldValues(existingVals);
     setModalVisible(true);
   };
 
@@ -92,6 +122,7 @@ export const IdeasScreen: React.FC = () => {
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
 
+    let savedId: string;
     if (editingIdea) {
       IdeasRepository.update(editingIdea.id, {
         title,
@@ -100,14 +131,20 @@ export const IdeasScreen: React.FC = () => {
         tags: tagsArray,
         isPinned,
       });
+      savedId = editingIdea.id;
     } else {
-      IdeasRepository.create({
+      const created = IdeasRepository.create({
         title,
         description,
         category,
         tags: tagsArray,
         isPinned,
       });
+      savedId = created.id;
+    }
+
+    if (Object.keys(customFieldValues).length > 0) {
+      CustomizationRepository.saveFieldValues('ideas', savedId, customFieldValues);
     }
 
     setModalVisible(false);
@@ -156,16 +193,18 @@ export const IdeasScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Top button with only + icon like other screens */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={handleOpenAdd}
-          style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
-          accessibilityRole="button"
-          accessibilityLabel="Add Idea"
-        >
-          <Ionicons name="add" size={24} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <ViewModeSwitcher pageKey="ideas" />
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleOpenAdd}
+            style={[styles.addBtn, { backgroundColor: colors.accentMint, marginLeft: 8 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Add Idea"
+          >
+            <Ionicons name="add" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search and Category Filter Row */}
@@ -177,9 +216,7 @@ export const IdeasScreen: React.FC = () => {
             placeholder="Search ideas or tags..."
             placeholderTextColor={colors.textMuted}
             value={search}
-            onChangeText={(text) => {
-              setSearch(text);
-            }}
+            onChangeText={(text) => setSearch(text)}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch('')}>
@@ -213,10 +250,10 @@ export const IdeasScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Filter Dropdown Menu (when open) */}
+      {/* Filter Dropdown Menu */}
       {isFilterDropdownOpen && (
         <View style={[styles.filterDropdownMenu, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <TouchableOpacity
               key={cat}
               style={[
@@ -230,66 +267,132 @@ export const IdeasScreen: React.FC = () => {
             >
               <Text
                 style={[
-                  typography.body,
-                  {
-                    color: selectedCategory === cat ? colors.primary : colors.textPrimary,
-                    fontWeight: selectedCategory === cat ? '700' : '400',
-                  },
+                  typography.bodyMedium,
+                  { color: selectedCategory === cat ? colors.primary : colors.textPrimary },
                 ]}
               >
                 {cat}
               </Text>
               {selectedCategory === cat && (
-                <Ionicons name="checkmark" size={16} color={colors.primary} />
+                <Ionicons name="checkmark" size={18} color={colors.primary} />
               )}
             </TouchableOpacity>
           ))}
         </View>
       )}
 
-      {/* Ideas List */}
-      <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+      {/* Ideas Feed */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.listPadding,
+          viewMode === 'grid' && styles.gridContainer,
+        ]}
+      >
         {filteredIdeas.length === 0 ? (
           <EmptyState
             icon="bulb-outline"
-            title="No ideas yet"
-            description="Got a sudden spark or thought? Tap New to jot it down!"
-            actionTitle="New Idea"
+            title="No ideas found"
+            description="Tap the + icon in header to capture your thoughts."
+            actionTitle="+ New Idea"
             onAction={handleOpenAdd}
           />
         ) : (
           filteredIdeas.map((idea) => {
-            const parsedTags: string[] = idea.tags ? JSON.parse(idea.tags) : [];
-            const dateStr = new Date(idea.created_at).toLocaleDateString(undefined, {
-              month: 'short',
-              day: 'numeric',
-            });
+            const tags: string[] = idea.tags ? JSON.parse(idea.tags) : [];
 
-            return (
-              <Card key={idea.id} variant="elevated" style={styles.ideaCard}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.titleRow}>
-                    {idea.is_pinned === 1 && (
-                      <Ionicons
-                        name="pin"
-                        size={16}
-                        color={colors.orange}
-                        style={{ marginRight: 6 }}
-                      />
-                    )}
-                    <Text
-                      style={[styles.ideaTitle, typography.h3, { color: colors.textPrimary }]}
-                      numberOfLines={2}
-                    >
+            // 1. Compact View Mode
+            if (viewMode === 'compact') {
+              return (
+                <Card key={idea.id} style={styles.compactCard}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => handleOpenEdit(idea)}
+                    style={styles.compactRow}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                        {idea.title}
+                      </Text>
+                    </View>
+                    <View style={[styles.compactBadge, { backgroundColor: colors.accentMint }]}>
+                      <Text style={[typography.captionBold, { color: colors.primary, fontSize: 10 }]}>
+                        {idea.category}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </Card>
+              );
+            }
+
+            // 2. List View Mode
+            if (viewMode === 'list') {
+              return (
+                <Card key={idea.id} style={styles.listCard}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => handleOpenEdit(idea)}
+                    style={styles.listRow}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                        {idea.title}
+                      </Text>
+                      {idea.description ? (
+                        <Text style={[typography.caption, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {idea.description}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={[typography.captionBold, { color: colors.primary }]}>
+                      {idea.category}
+                    </Text>
+                  </TouchableOpacity>
+                </Card>
+              );
+            }
+
+            // 3. Grid View Mode
+            if (viewMode === 'grid') {
+              return (
+                <Card key={idea.id} style={styles.gridCard}>
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => handleOpenEdit(idea)}>
+                    <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={2}>
                       {idea.title}
+                    </Text>
+                    {idea.description ? (
+                      <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]} numberOfLines={2}>
+                        {idea.description}
+                      </Text>
+                    ) : null}
+                    <View style={[styles.compactBadge, { backgroundColor: colors.accentMint, alignSelf: 'flex-start', marginTop: 8 }]}>
+                      <Text style={[typography.captionBold, { color: colors.primary, fontSize: 10 }]}>
+                        {idea.category}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </Card>
+              );
+            }
+
+            // 4. Card View Mode (Default)
+            return (
+              <Card key={idea.id} style={styles.ideaCard}>
+                <View style={styles.cardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, typography.h3, { color: colors.textPrimary }]}>
+                      {idea.title}
+                    </Text>
+                    <Text style={[styles.cardDate, typography.caption, { color: colors.textMuted }]}>
+                      {idea.created_at.split('T')[0]} · {idea.category}
                     </Text>
                   </View>
 
-                  <View style={styles.actionButtons}>
+                  <View style={styles.cardHeaderActions}>
                     <TouchableOpacity
                       onPress={() => handleTogglePin(idea)}
-                      style={styles.iconAction}
-                      accessibilityLabel="Pin Idea"
+                      style={styles.iconBtn}
+                      accessibilityLabel="Pin idea"
                     >
                       <Ionicons
                         name={idea.is_pinned === 1 ? 'pin' : 'pin-outline'}
@@ -299,15 +402,15 @@ export const IdeasScreen: React.FC = () => {
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleOpenEdit(idea)}
-                      style={styles.iconAction}
-                      accessibilityLabel="Edit Idea"
+                      style={styles.iconBtn}
+                      accessibilityLabel="Edit idea"
                     >
-                      <Ionicons name="pencil-outline" size={18} color={colors.primary} />
+                      <Ionicons name="create-outline" size={18} color={colors.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleDelete(idea)}
-                      style={styles.iconAction}
-                      accessibilityLabel="Delete Idea"
+                      style={styles.iconBtn}
+                      accessibilityLabel="Delete idea"
                     >
                       <Ionicons name="trash-outline" size={18} color={colors.danger} />
                     </TouchableOpacity>
@@ -315,72 +418,79 @@ export const IdeasScreen: React.FC = () => {
                 </View>
 
                 {idea.description ? (
-                  <Text
-                    style={[styles.ideaDescription, typography.body, { color: colors.textSecondary }]}
-                    numberOfLines={4}
-                  >
+                  <Text style={[styles.cardDescription, typography.body, { color: colors.textSecondary }]}>
                     {idea.description}
                   </Text>
                 ) : null}
 
-                <View style={styles.cardFooter}>
+                {/* Custom Fields Badges */}
+                <CustomFieldsBadgeRow entityType="ideas" entityId={idea.id} />
+
+                {tags.length > 0 && (
                   <View style={styles.tagsContainer}>
-                    <View
-                      style={[
-                        styles.badge,
-                        { backgroundColor: colors.accentMint, borderColor: colors.primary + '30' },
-                      ]}
-                    >
-                      <Text style={[typography.captionBold, { color: colors.primary }]}>
-                        {idea.category}
-                      </Text>
-                    </View>
-                    {parsedTags.map((tag, idx) => (
-                      <View key={idx} style={[styles.tagBadge, { backgroundColor: colors.background }]}>
-                        <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                          #{tag}
-                        </Text>
+                    {tags.map((tag, idx) => (
+                      <View key={idx} style={[styles.tagBadge, { backgroundColor: colors.accentMint }]}>
+                        <Text style={[typography.caption, { color: colors.primary }]}>#{tag}</Text>
                       </View>
                     ))}
                   </View>
-                  <Text style={[typography.caption, { color: colors.textMuted }]}>{dateStr}</Text>
-                </View>
+                )}
               </Card>
             );
           })
         )}
-        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Modal: Quick Capture / Edit */}
+      {/* Add / Edit Idea Modal */}
       <BottomSheetModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        title={editingIdea ? 'Edit Idea' : 'New Idea'}
+        title={editingIdea ? 'Edit Idea' : 'Capture an Idea'}
       >
-        <View style={styles.modalContent}>
-          <Text style={[styles.inputLabel, typography.captionBold, { color: colors.textSecondary }]}>
-            IDEA TITLE *
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formContainer}>
+          <Text style={[styles.label, typography.captionBold, { color: colors.textSecondary }]}>
+            TITLE *
           </Text>
           <TextInput
-            style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
-            placeholder="e.g., Personal productivity assistant app"
+            style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
+            placeholder="What's your idea?"
             placeholderTextColor={colors.textMuted}
             value={title}
             onChangeText={setTitle}
-            autoFocus
           />
 
-          <Text style={[styles.inputLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 12 }]}>
-            DESCRIPTION / NOTES
+          <Text style={[styles.label, typography.captionBold, { color: colors.textSecondary }]}>
+            CATEGORY
+          </Text>
+          <View style={styles.catGrid}>
+            {categories.filter((c) => c !== 'All').map((c) => (
+              <TouchableOpacity
+                key={c}
+                onPress={() => setCategory(c)}
+                style={[
+                  styles.catChip,
+                  category === c && { backgroundColor: colors.primary, borderColor: colors.primary },
+                  { borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    typography.captionBold,
+                    { color: category === c ? '#FFFFFF' : colors.textPrimary },
+                  ]}
+                >
+                  {c}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={[styles.label, typography.captionBold, { color: colors.textSecondary }]}>
+            DESCRIPTION
           </Text>
           <TextInput
-            style={[
-              styles.modalInput,
-              styles.modalTextArea,
-              { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary },
-            ]}
-            placeholder="Outline your thoughts, next steps, or key takeaways..."
+            style={[styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
+            placeholder="Add details, notes, or next steps..."
             placeholderTextColor={colors.textMuted}
             value={description}
             onChangeText={setDescription}
@@ -388,94 +498,25 @@ export const IdeasScreen: React.FC = () => {
             numberOfLines={4}
           />
 
-          {/* Category Dropdown (replacing column list) */}
-          <Text style={[styles.inputLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 12 }]}>
-            CATEGORY
-          </Text>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-            style={[
-              styles.categoryDropdownTrigger,
-              {
-                backgroundColor: colors.surface,
-                borderColor: isCategoryDropdownOpen ? colors.primary : colors.border,
-              },
-            ]}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={[styles.categoryColorDot, { backgroundColor: colors.primary }]} />
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                {category}
-              </Text>
-            </View>
-            <Ionicons
-              name={isCategoryDropdownOpen ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          {isCategoryDropdownOpen && (
-            <View style={[styles.categoryDropdownMenu, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              {CATEGORIES.filter((c) => c !== 'All').map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  style={[
-                    styles.dropdownItem,
-                    category.toLowerCase() === c.toLowerCase() && { backgroundColor: colors.accentMint },
-                  ]}
-                  onPress={() => {
-                    setCategory(c);
-                    setIsCategoryDropdownOpen(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      typography.body,
-                      {
-                        color: category.toLowerCase() === c.toLowerCase() ? colors.primary : colors.textPrimary,
-                        fontWeight: category.toLowerCase() === c.toLowerCase() ? '700' : '400',
-                      },
-                    ]}
-                  >
-                    {c}
-                  </Text>
-                  {category.toLowerCase() === c.toLowerCase() && (
-                    <Ionicons name="checkmark" size={16} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          <Text style={[styles.inputLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 12 }]}>
-            TAGS (comma-separated)
+          <Text style={[styles.label, typography.captionBold, { color: colors.textSecondary }]}>
+            TAGS (comma separated)
           </Text>
           <TextInput
-            style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary }]}
-            placeholder="e.g., mobile, react-native, ai"
+            style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
+            placeholder="growth, feature, quick"
             placeholderTextColor={colors.textMuted}
             value={tagsInput}
             onChangeText={setTagsInput}
           />
 
-          <TouchableOpacity
-            style={styles.pinCheckbox}
-            onPress={() => setIsPinned(!isPinned)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={isPinned ? 'checkbox' : 'square-outline'}
-              size={22}
-              color={isPinned ? colors.primary : colors.textMuted}
-            />
-            <Text style={[typography.body, { color: colors.textPrimary, marginLeft: 8 }]}>
-              Pin to top for quick reference
-            </Text>
-          </TouchableOpacity>
+          {/* Custom Fields Section */}
+          <CustomFieldsSection
+            entityType="ideas"
+            values={customFieldValues}
+            onChange={(k, v) => setCustomFieldValues((prev) => ({ ...prev, [k]: v }))}
+          />
 
-          <View style={styles.modalActions}>
+          <View style={styles.modalButtons}>
             <Button
               title="Cancel"
               variant="ghost"
@@ -483,13 +524,12 @@ export const IdeasScreen: React.FC = () => {
               style={{ flex: 1, marginRight: 8 }}
             />
             <Button
-              title={editingIdea ? 'Save Changes' : 'New Idea'}
-              variant="primary"
+              title={editingIdea ? 'Save Changes' : 'Save Idea'}
               onPress={handleSave}
-              style={{ flex: 2 }}
+              style={{ flex: 1, marginLeft: 8 }}
             />
           </View>
-        </View>
+        </ScrollView>
       </BottomSheetModal>
     </Screen>
   );
@@ -497,20 +537,23 @@ export const IdeasScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   screenPadding: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   menuBtn: {
     width: 42,
@@ -524,164 +567,162 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchAndFilterRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    gap: 8,
     marginBottom: 12,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   searchInput: {
     flex: 1,
-    padding: 0,
+    height: '100%',
   },
   filterDropdownBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    height: 44,
     borderRadius: 12,
     borderWidth: 1,
   },
   filterDropdownMenu: {
-    borderWidth: 1,
     borderRadius: 12,
+    borderWidth: 1,
+    padding: 6,
     marginBottom: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
   },
   dropdownItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
-  list: {
-    flex: 1,
+  listPadding: {
+    paddingBottom: 40,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  compactCard: {
+    marginBottom: 8,
+    padding: 10,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  compactBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  listCard: {
+    marginBottom: 8,
+    padding: 12,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gridCard: {
+    width: '48%',
+    marginBottom: 10,
+    padding: 10,
   },
   ideaCard: {
-    marginBottom: 14,
+    marginBottom: 12,
     padding: 16,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    paddingRight: 8,
-  },
-  ideaTitle: {
+  cardTitle: {
     fontWeight: '700',
-    flex: 1,
   },
-  actionButtons: {
+  cardDate: {
+    marginTop: 2,
+  },
+  cardHeaderActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
-  iconAction: {
-    padding: 6,
+  iconBtn: {
+    padding: 4,
   },
-  ideaDescription: {
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
+  cardDescription: {
+    marginTop: 8,
   },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    alignItems: 'center',
     gap: 6,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
+    marginTop: 10,
   },
   tagBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 2,
     borderRadius: 6,
   },
-  modalContent: {
-    paddingBottom: 20,
+  formContainer: {
+    paddingBottom: 24,
   },
-  inputLabel: {
-    letterSpacing: 0.5,
-    marginBottom: 6,
+  label: {
+    marginBottom: 4,
+    marginTop: 8,
   },
-  modalInput: {
+  input: {
+    height: 48,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-  },
-  modalTextArea: {
-    height: 90,
-    textAlignVertical: 'top',
-  },
-  categoryDropdownTrigger: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  categoryColorDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
-  },
-  categoryDropdownMenu: {
-    borderWidth: 1,
-    borderRadius: 12,
-    marginTop: 6,
-    overflow: 'hidden',
-  },
-  pinCheckbox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
+    fontSize: 16,
     marginBottom: 8,
   },
-  modalActions: {
+  textArea: {
+    height: 90,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    fontSize: 16,
+    textAlignVertical: 'top',
+    marginBottom: 8,
+  },
+  catGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 20,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  catChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    marginTop: 16,
   },
 });

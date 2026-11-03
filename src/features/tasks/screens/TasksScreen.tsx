@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,12 @@ import { BottomSheetModal } from '../../../components/ui/BottomSheetModal';
 import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useTheme } from '../../../hooks/useTheme';
+import { useCustomizationStore } from '../../../store/useCustomizationStore';
+import { CustomizationRepository } from '../../customization/customization.repository';
+import { ViewModeSwitcher } from '../../customization/components/ViewModeSwitcher';
+import { CustomFieldsSection } from '../../customization/components/CustomFieldsSection';
+import { CustomFieldsBadgeRow } from '../../customization/components/CustomFieldsBadgeRow';
+import { sortItemsByLayout } from '../../customization/layout.utils';
 import { TasksRepository } from '../tasks.repository';
 import { Task } from '../tasks.types';
 
@@ -28,11 +34,13 @@ export const TasksScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { colors, typography, radius } = useTheme();
+  const pageLayout = useCustomizationStore((state) => state.pageLayouts['tasks']);
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [activeTab, setActiveTab] = useState<'tasks' | 'schedule'>('tasks');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [categories, setCategories] = useState<string[]>(['Study', 'Work', 'Habits', 'Personal', 'General']);
 
   // Form states for Add Task
   const [newTitle, setNewTitle] = useState('');
@@ -40,10 +48,19 @@ export const TasksScreen: React.FC = () => {
   const [newStartTime, setNewStartTime] = useState('09:00 AM');
   const [newEndTime, setNewEndTime] = useState('10:30 AM');
   const [isPriority, setIsPriority] = useState(false);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
 
   const loadTasks = useCallback(() => {
     const list = TasksRepository.getTasksByDate(selectedDate);
     setTasks(list);
+
+    // Merge custom categories
+    const customCats = CustomizationRepository.getCategories('tasks');
+    const base = ['Study', 'Work', 'Habits', 'Personal', 'General'];
+    customCats.forEach((c) => {
+      if (!base.includes(c.name)) base.push(c.name);
+    });
+    setCategories(base);
   }, [selectedDate]);
 
   useFocusEffect(
@@ -76,7 +93,7 @@ export const TasksScreen: React.FC = () => {
       return;
     }
 
-    TasksRepository.create({
+    const created = TasksRepository.create({
       title: newTitle.trim(),
       date: selectedDate,
       start_time: newStartTime,
@@ -88,17 +105,35 @@ export const TasksScreen: React.FC = () => {
       repeat: 'none',
     });
 
+    if (created && Object.keys(customFieldValues).length > 0) {
+      CustomizationRepository.saveFieldValues('tasks', created.id, customFieldValues);
+    }
+
     setNewTitle('');
+    setCustomFieldValues({});
     setIsAddModalOpen(false);
     loadTasks();
   };
 
   const formattedDate = format(parseISO(selectedDate), 'EEE, MMM d, yyyy');
 
+  const sortedTasks = useMemo(() => {
+    return sortItemsByLayout(tasks, pageLayout);
+  }, [tasks, pageLayout]);
+
+  const viewMode = pageLayout?.viewMode || 'card';
+  const visibleFields = pageLayout?.visibleFields || [
+    'show_dates',
+    'show_categories',
+    'show_progress',
+    'show_notes',
+    'show_status',
+  ];
+
   return (
     <Screen backgroundColor={colors.background} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.container}>
-        {/* Top Header with Menu Button like other screens */}
+        {/* Top Header with Menu Button & View Switcher */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <TouchableOpacity
@@ -114,15 +149,19 @@ export const TasksScreen: React.FC = () => {
               Tasks & Schedule
             </Text>
           </View>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setIsAddModalOpen(true)}
-            style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
-            accessibilityRole="button"
-            accessibilityLabel="Add Task"
-          >
-            <Ionicons name="add" size={24} color={colors.primary} />
-          </TouchableOpacity>
+
+          <View style={styles.headerRight}>
+            <ViewModeSwitcher pageKey="tasks" />
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setIsAddModalOpen(true)}
+              style={[styles.addBtn, { backgroundColor: colors.accentMint, marginLeft: 8 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Add Task"
+            >
+              <Ionicons name="add" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Date Selector Header */}
@@ -157,10 +196,13 @@ export const TasksScreen: React.FC = () => {
         {activeTab === 'tasks' ? (
           <ScrollView
             style={styles.list}
-            contentContainerStyle={styles.scrollListPadding}
+            contentContainerStyle={[
+              styles.scrollListPadding,
+              viewMode === 'grid' && styles.gridContainer,
+            ]}
             showsVerticalScrollIndicator={false}
           >
-            {tasks.length === 0 ? (
+            {sortedTasks.length === 0 ? (
               <EmptyState
                 icon="checkbox-outline"
                 title="No tasks scheduled"
@@ -169,65 +211,184 @@ export const TasksScreen: React.FC = () => {
                 onAction={() => setIsAddModalOpen(true)}
               />
             ) : (
-              tasks.map((task) => (
-                <Card key={task.id} style={styles.taskCard}>
-                  <View style={styles.taskRow}>
-                    <Checkbox
-                      checked={task.is_completed === 1}
-                      onToggle={() => handleToggleTask(task.id)}
-                    />
-                    <View style={styles.taskDetails}>
-                      <Text
-                        style={[
-                          styles.taskTitle,
-                          typography.bodyMedium,
-                          {
-                            color: task.is_completed === 1 ? colors.textMuted : colors.textPrimary,
-                            textDecorationLine: task.is_completed === 1 ? 'line-through' : 'none',
-                          },
-                        ]}
-                      >
-                        {task.title}
-                      </Text>
-                      {task.start_time && (
-                        <Text style={[typography.caption, { color: colors.textMuted }]}>
-                          {task.start_time} {task.end_time ? `- ${task.end_time}` : ''}
+              sortedTasks.map((task) => {
+                // 1. Compact View Mode
+                if (viewMode === 'compact') {
+                  return (
+                    <Card key={task.id} style={styles.compactCard}>
+                      <View style={styles.compactRow}>
+                        <Checkbox
+                          checked={task.is_completed === 1}
+                          onToggle={() => handleToggleTask(task.id)}
+                        />
+                        <Text
+                          style={[
+                            typography.bodyBold,
+                            {
+                              flex: 1,
+                              marginLeft: 8,
+                              color: task.is_completed === 1 ? colors.textMuted : colors.textPrimary,
+                              textDecorationLine: task.is_completed === 1 ? 'line-through' : 'none',
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {task.title}
                         </Text>
+                        {visibleFields.includes('show_categories') && (
+                          <View style={[styles.compactBadge, { backgroundColor: colors.accentMint }]}>
+                            <Text style={[typography.captionBold, { color: colors.primary, fontSize: 10 }]}>
+                              {task.category}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </Card>
+                  );
+                }
+
+                // 2. List View Mode
+                if (viewMode === 'list') {
+                  return (
+                    <Card key={task.id} style={styles.listCard}>
+                      <View style={styles.listRow}>
+                        <Checkbox
+                          checked={task.is_completed === 1}
+                          onToggle={() => handleToggleTask(task.id)}
+                        />
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                          <Text
+                            style={[
+                              typography.bodyBold,
+                              {
+                                color: task.is_completed === 1 ? colors.textMuted : colors.textPrimary,
+                                textDecorationLine: task.is_completed === 1 ? 'line-through' : 'none',
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {task.title}
+                          </Text>
+                          <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                            {task.start_time || 'Today'} · {task.category}
+                          </Text>
+                        </View>
+                        {visibleFields.includes('show_status') && task.is_priority === 1 && (
+                          <View style={[styles.compactBadge, { backgroundColor: colors.dangerSoft }]}>
+                            <Text style={[typography.captionBold, { color: colors.danger, fontSize: 10 }]}>
+                              PRIORITY
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </Card>
+                  );
+                }
+
+                // 3. Grid View Mode
+                if (viewMode === 'grid') {
+                  return (
+                    <Card key={task.id} style={styles.gridCard}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                        <Checkbox
+                          checked={task.is_completed === 1}
+                          onToggle={() => handleToggleTask(task.id)}
+                        />
+                        <Text
+                          style={[
+                            typography.captionBold,
+                            {
+                              flex: 1,
+                              marginLeft: 6,
+                              color: task.is_completed === 1 ? colors.textMuted : colors.textPrimary,
+                              textDecorationLine: task.is_completed === 1 ? 'line-through' : 'none',
+                            },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {task.title}
+                        </Text>
+                      </View>
+                      <Text style={[typography.caption, { color: colors.textSecondary, fontSize: 11 }]}>
+                        {task.start_time || 'All Day'}
+                      </Text>
+                      {visibleFields.includes('show_categories') && (
+                        <View style={[styles.compactBadge, { backgroundColor: colors.accentMint, alignSelf: 'flex-start', marginTop: 4 }]}>
+                          <Text style={[typography.captionBold, { color: colors.primary, fontSize: 9 }]}>
+                            {task.category}
+                          </Text>
+                        </View>
+                      )}
+                    </Card>
+                  );
+                }
+
+                // 4. Card View Mode (Standard)
+                return (
+                  <Card key={task.id} style={styles.taskCard}>
+                    <View style={styles.taskRow}>
+                      <Checkbox
+                        checked={task.is_completed === 1}
+                        onToggle={() => handleToggleTask(task.id)}
+                      />
+                      <View style={styles.taskDetails}>
+                        <Text
+                          style={[
+                            styles.taskTitle,
+                            typography.bodyMedium,
+                            {
+                              color: task.is_completed === 1 ? colors.textMuted : colors.textPrimary,
+                              textDecorationLine: task.is_completed === 1 ? 'line-through' : 'none',
+                            },
+                          ]}
+                        >
+                          {task.title}
+                        </Text>
+                        {visibleFields.includes('show_dates') && task.start_time && (
+                          <Text style={[typography.caption, { color: colors.textMuted }]}>
+                            {task.start_time} {task.end_time ? `- ${task.end_time}` : ''}
+                          </Text>
+                        )}
+                      </View>
+
+                      {visibleFields.includes('show_categories') && (
+                        <View
+                          style={[
+                            styles.catBadge,
+                            {
+                              backgroundColor:
+                                task.category === 'Study'
+                                  ? colors.accentMint
+                                  : task.category === 'Work'
+                                  ? colors.purpleSoft
+                                  : colors.orangeSoft,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              typography.captionBold,
+                              {
+                                color:
+                                  task.category === 'Study'
+                                    ? colors.primary
+                                    : task.category === 'Work'
+                                    ? colors.purple
+                                    : colors.orange,
+                              },
+                            ]}
+                          >
+                            {task.category}
+                          </Text>
+                        </View>
                       )}
                     </View>
 
-                    <View
-                      style={[
-                        styles.catBadge,
-                        {
-                          backgroundColor:
-                            task.category === 'Study'
-                              ? colors.accentMint
-                              : task.category === 'Work'
-                              ? colors.purpleSoft
-                              : colors.orangeSoft,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          typography.captionBold,
-                          {
-                            color:
-                              task.category === 'Study'
-                                ? colors.primary
-                                : task.category === 'Work'
-                                ? colors.purple
-                                : colors.orange,
-                          },
-                        ]}
-                      >
-                        {task.category}
-                      </Text>
-                    </View>
-                  </View>
-                </Card>
-              ))
+                    {/* Custom fields badges */}
+                    <CustomFieldsBadgeRow entityType="tasks" entityId={task.id} />
+                  </Card>
+                );
+              })
             )}
             <View style={{ height: 80 }} />
           </ScrollView>
@@ -256,6 +417,7 @@ export const TasksScreen: React.FC = () => {
                   <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
                     {task.category} · {task.start_time} - {task.end_time}
                   </Text>
+                  <CustomFieldsBadgeRow entityType="tasks" entityId={task.id} />
                 </Card>
               </View>
             ))}
@@ -322,7 +484,7 @@ export const TasksScreen: React.FC = () => {
               Category
             </Text>
             <View style={styles.catPicker}>
-              {['Study', 'Work', 'Habits', 'General'].map((cat) => {
+              {categories.map((cat) => {
                 const isSelected = newCategory === cat;
                 return (
                   <TouchableOpacity
@@ -359,6 +521,13 @@ export const TasksScreen: React.FC = () => {
               </Text>
             </TouchableOpacity>
 
+            {/* Custom Fields Section */}
+            <CustomFieldsSection
+              entityType="tasks"
+              values={customFieldValues}
+              onChange={(k, v) => setCustomFieldValues((prev) => ({ ...prev, [k]: v }))}
+            />
+
             <Button
               title="Save Task"
               onPress={handleCreateTask}
@@ -388,6 +557,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   menuBtn: {
     width: 40,
     height: 40,
@@ -400,9 +573,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   addBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -424,14 +597,47 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+    marginTop: 10,
   },
   scrollListPadding: {
-    paddingBottom: 32,
+    paddingBottom: 40,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  compactCard: {
+    marginBottom: 8,
+    padding: 10,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  compactBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  listCard: {
+    marginBottom: 8,
+    padding: 12,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gridCard: {
+    width: '48%',
+    marginBottom: 10,
+    padding: 10,
   },
   taskCard: {
-    paddingVertical: 14,
-    paddingHorizontal: 14,
     marginBottom: 10,
+    padding: 14,
   },
   taskRow: {
     flexDirection: 'row',
@@ -439,24 +645,24 @@ const styles = StyleSheet.create({
   },
   taskDetails: {
     flex: 1,
-    marginHorizontal: 10,
+    marginLeft: 12,
   },
   taskTitle: {
     fontWeight: '600',
   },
   catBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+    marginLeft: 8,
   },
   timelineRow: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   timelineLeft: {
-    width: 80,
+    width: 70,
     alignItems: 'center',
-    paddingTop: 6,
   },
   timelineLine: {
     width: 2,
@@ -465,52 +671,42 @@ const styles = StyleSheet.create({
   },
   timelineCard: {
     flex: 1,
+    marginLeft: 10,
     padding: 14,
   },
-  bottomBar: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    zIndex: 10,
-  },
-  shadowBtn: {
-    shadowColor: '#1E8E4E',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
-  },
   modalForm: {
-    paddingTop: 8,
+    paddingBottom: 24,
   },
   formLabel: {
     marginBottom: 6,
-    marginTop: 12,
+    letterSpacing: 0.5,
   },
   modalInput: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
+    height: 48,
     borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    marginBottom: 14,
   },
   row: {
     flexDirection: 'row',
   },
   catPicker: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
-    marginTop: 4,
+    marginBottom: 16,
   },
   catChoice: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
   },
   priorityToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 18,
+    marginBottom: 10,
   },
 });
-

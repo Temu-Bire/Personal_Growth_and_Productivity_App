@@ -19,15 +19,24 @@ import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { LineChart } from '../../../components/charts/LineChart';
 import { useTheme } from '../../../hooks/useTheme';
+import { useCustomizationStore } from '../../../store/useCustomizationStore';
+import { CustomizationRepository } from '../../customization/customization.repository';
+import { ViewModeSwitcher } from '../../customization/components/ViewModeSwitcher';
+import { CustomFieldsSection } from '../../customization/components/CustomFieldsSection';
+import { CustomFieldsBadgeRow } from '../../customization/components/CustomFieldsBadgeRow';
+import { sortItemsByLayout } from '../../customization/layout.utils';
 import { TradingRepository, Trade } from '../trading.repository';
 import { formatCurrency } from '../../../utils/format';
 
 export const TradingScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
+  const pageLayout = useCustomizationStore((state) => state.pageLayouts['trading']);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'trades'>('overview');
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [addCustomValues, setAddCustomValues] = useState<Record<string, any>>({});
+  const [editCustomValues, setEditCustomValues] = useState<Record<string, any>>({});
   const [stats, setStats] = useState<any>({
     winRate: 62.5,
     totalPnl: 245.5,
@@ -83,7 +92,7 @@ export const TradingScreen: React.FC = () => {
       return;
     }
 
-    TradingRepository.createTrade({
+    const created = TradingRepository.createTrade({
       pair: pair.trim(),
       direction,
       entryPrice: parseFloat(entryPrice) || 0,
@@ -94,7 +103,12 @@ export const TradingScreen: React.FC = () => {
       notes,
     });
 
+    if (created && Object.keys(addCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('trading', created.id, addCustomValues);
+    }
+
     setNotes('');
+    setAddCustomValues({});
     setIsAddOpen(false);
     loadData();
   };
@@ -111,6 +125,8 @@ export const TradingScreen: React.FC = () => {
     setEditLot(String(trade.lot_size));
     setEditPnl(String(trade.pnl));
     setEditNotes(trade.notes || '');
+    const existing = CustomizationRepository.getFieldValues('trading', trade.id);
+    setEditCustomValues(existing);
     setIsEditOpen(true);
   };
 
@@ -129,6 +145,10 @@ export const TradingScreen: React.FC = () => {
       pnl: parseFloat(editPnl) || 0,
       notes: editNotes,
     });
+
+    if (Object.keys(editCustomValues).length > 0) {
+      CustomizationRepository.saveFieldValues('trading', selectedTrade.id, editCustomValues);
+    }
 
     setIsEditOpen(false);
     loadData();
@@ -155,6 +175,7 @@ export const TradingScreen: React.FC = () => {
   };
 
   const recentTrades = trades.slice(0, 4);
+  const sortedTrades = sortItemsByLayout(trades, pageLayout);
 
   return (
     <Screen backgroundColor={colors.background}>
@@ -175,14 +196,17 @@ export const TradingScreen: React.FC = () => {
               Trading Journal
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setIsAddOpen(true)}
-            style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
-            accessibilityRole="button"
-            accessibilityLabel="Add Trade"
-          >
-            <Ionicons name="add" size={24} color={colors.primary} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <ViewModeSwitcher pageKey="trading" />
+            <TouchableOpacity
+              onPress={() => setIsAddOpen(true)}
+              style={[styles.addBtn, { backgroundColor: colors.accentMint, marginLeft: 8 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Add Trade"
+            >
+              <Ionicons name="add" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Tabs: Overview vs Trades */}
@@ -339,7 +363,7 @@ export const TradingScreen: React.FC = () => {
                 onAction={() => setIsAddOpen(true)}
               />
             ) : (
-              trades.map((trade) => {
+              sortedTrades.map((trade) => {
                 const isWin = trade.pnl >= 0;
                 return (
                   <TouchableOpacity
@@ -409,6 +433,7 @@ export const TradingScreen: React.FC = () => {
                           style={{ marginLeft: 8 }}
                         />
                       </View>
+                      <CustomFieldsBadgeRow entityType="trading" entityId={trade.id} />
                     </Card>
                   </TouchableOpacity>
                 );
@@ -565,6 +590,12 @@ export const TradingScreen: React.FC = () => {
               ]}
             />
 
+            <CustomFieldsSection
+              entityType="trading"
+              values={addCustomValues}
+              onChange={(key, val) => setAddCustomValues((prev) => ({ ...prev, [key]: val }))}
+            />
+
             <Button
               title="Save Trade Execution"
               onPress={handleCreateTrade}
@@ -673,6 +704,12 @@ export const TradingScreen: React.FC = () => {
                   </Text>
                 </View>
               )}
+
+              <CustomFieldsBadgeRow
+                entityType="trading"
+                entityId={selectedTrade.id}
+                containerStyle={{ marginTop: 12 }}
+              />
 
               <View style={styles.detailActionButtons}>
                 <Button
@@ -825,6 +862,12 @@ export const TradingScreen: React.FC = () => {
                 styles.modalInput,
                 { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
               ]}
+            />
+
+            <CustomFieldsSection
+              entityType="trading"
+              values={editCustomValues}
+              onChange={(key, val) => setEditCustomValues((prev) => ({ ...prev, [key]: val }))}
             />
 
             <View style={{ flexDirection: 'row', marginTop: 16, gap: 10 }}>
