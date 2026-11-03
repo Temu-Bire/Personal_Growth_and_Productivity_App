@@ -15,6 +15,8 @@ import { NavigationSettingsScreen } from '../../features/settings/screens/Naviga
 import { CategoriesSettingsScreen } from '../../features/settings/screens/CategoriesSettingsScreen';
 import { DashboardSettingsScreen } from '../../features/settings/screens/DashboardSettingsScreen';
 import { FormBuilderSettingsScreen } from '../../features/settings/screens/FormBuilderSettingsScreen';
+import { LayoutSettingsScreen } from '../../features/settings/screens/LayoutSettingsScreen';
+import { GeneralPreferencesScreen } from '../../features/settings/screens/GeneralPreferencesScreen';
 import { IdeasScreen } from '../../features/ideas/screens/IdeasScreen';
 
 import { RootStackParamList } from './types';
@@ -94,6 +96,16 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen
         name="FormBuilderSettingsScreen"
         component={FormBuilderSettingsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="LayoutSettingsScreen"
+        component={LayoutSettingsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="GeneralPreferencesScreen"
+        component={GeneralPreferencesScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>

@@ -158,6 +158,194 @@ export const SettingsScreen: React.FC = () => {
           </TouchableOpacity>
         </Card>
 
+        {/* SECTION: App Personalization & Customization */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, typography.h3, { color: colors.textPrimary }]}>
+            Personalization & Customization
+          </Text>
+          <View style={[styles.proBadge, { backgroundColor: colors.accentMint }]}>
+            <Ionicons name="sparkles" size={12} color={colors.primary} style={{ marginRight: 4 }} />
+            <Text style={[typography.captionBold, { color: colors.primary, fontSize: 11 }]}>
+              CUSTOMIZE
+            </Text>
+          </View>
+        </View>
+
+        <Card style={styles.menuCard}>
+          {/* 1. Appearance & Theme */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('AppearanceSettingsScreen')}
+            style={styles.menuRow}
+            accessibilityRole="button"
+            accessibilityLabel="Appearance and Theme"
+          >
+            <View style={[styles.iconCircle, { backgroundColor: colors.accentMint }]}>
+              <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                Appearance & Theme
+              </Text>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>
+                Color palettes, custom colors, contrast & font scaling
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
+          {/* 2. Navigation & Sidebar */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('NavigationSettingsScreen')}
+            style={styles.menuRow}
+            accessibilityRole="button"
+            accessibilityLabel="Navigation and Sidebar"
+          >
+            <View style={[styles.iconCircle, { backgroundColor: '#EDE9FE' }]}>
+              <Ionicons name="menu-outline" size={20} color="#6D4AFF" />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                Sidebar & Navigation
+              </Text>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>
+                Reorder, hide, rename & create custom pages
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
+          {/* 3. Categories & Units */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('CategoriesSettingsScreen')}
+            style={styles.menuRow}
+            accessibilityRole="button"
+            accessibilityLabel="Categories and Units"
+          >
+            <View style={[styles.iconCircle, { backgroundColor: '#FEF3C7' }]}>
+              <Ionicons name="pricetags-outline" size={20} color="#D97706" />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                Categories & Units
+              </Text>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>
+                Custom categories, colors, icons & measurement units
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
+          {/* 4. Dashboard Customization */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('DashboardSettingsScreen')}
+            style={styles.menuRow}
+            accessibilityRole="button"
+            accessibilityLabel="Dashboard Customization"
+          >
+            <View style={[styles.iconCircle, { backgroundColor: '#E0F2FE' }]}>
+              <Ionicons name="apps-outline" size={20} color="#0284C7" />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                Dashboard Feed
+              </Text>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>
+                Show, hide, reorder & resize feed widgets
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
+          {/* 5. Form Builder */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('FormBuilderSettingsScreen')}
+            style={styles.menuRow}
+            accessibilityRole="button"
+            accessibilityLabel="Form Builder"
+          >
+            <View style={[styles.iconCircle, { backgroundColor: '#FCE7F3' }]}>
+              <Ionicons name="construct-outline" size={20} color="#DB2777" />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                Form Builder
+              </Text>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>
+                Add custom fields, sections, required rules & preview
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
+          {/* 6. Layout & Lists */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('LayoutSettingsScreen')}
+            style={styles.menuRow}
+            accessibilityRole="button"
+            accessibilityLabel="Layout and Lists"
+          >
+            <View style={[styles.iconCircle, { backgroundColor: '#DCFCE7' }]}>
+              <Ionicons name="layers-outline" size={20} color="#16A34A" />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                Layout & Lists
+              </Text>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>
+                Card, list, compact, grid views & default sorting
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
+          {/* 7. General Preferences */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('GeneralPreferencesScreen')}
+            style={styles.menuRow}
+            accessibilityRole="button"
+            accessibilityLabel="General Preferences"
+          >
+            <View style={[styles.iconCircle, { backgroundColor: '#F3F4F6' }]}>
+              <Ionicons name="options-outline" size={20} color="#4B5563" />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                General Preferences
+              </Text>
+              <Text style={[typography.caption, { color: colors.textMuted }]}>
+                Date format, week start day, sounds & haptics
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+        </Card>
+
+        {/* SECTION: System & Data */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, typography.h3, { color: colors.textPrimary }]}>
+            Security & System
+          </Text>
+        </View>
+
         {/* Settings Options Group */}
         <Card style={styles.menuCard}>
           {/* Profile & Name Editor */}
@@ -535,6 +723,24 @@ const styles = StyleSheet.create({
   menuCard: {
     padding: 10,
     marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    fontWeight: '700',
+  },
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   menuRow: {
     flexDirection: 'row',
