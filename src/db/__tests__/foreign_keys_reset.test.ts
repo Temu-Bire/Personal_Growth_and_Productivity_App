@@ -21,8 +21,13 @@ describe('Foreign Key Integrity & Table Deletion Hierarchy', () => {
     expect(indexOf('habit_logs')).toBeLessThan(indexOf('habits'));
   });
 
-  it('contains all 18 system tables to prevent orphan data or lingering foreign keys', () => {
+  it('contains all system tables to prevent orphan data or lingering foreign keys', () => {
     const requiredTables = [
+      'custom_field_values',
+      'custom_fields',
+      'custom_categories',
+      'custom_units',
+      'user_preferences',
       'ideas',
       'profile',
       'tasks',
@@ -50,8 +55,8 @@ describe('Foreign Key Integrity & Table Deletion Hierarchy', () => {
 
   it('drops tables sequentially in child-first order', () => {
     const dropStatements = TABLE_DELETION_ORDER.map((t) => `DROP TABLE IF EXISTS ${t};`);
-    expect(dropStatements.length).toBe(18);
-    expect(dropStatements[0]).toBe('DROP TABLE IF EXISTS ideas;');
+    expect(dropStatements.length).toBe(23);
+    expect(dropStatements[0]).toBe('DROP TABLE IF EXISTS custom_field_values;');
     expect(dropStatements[dropStatements.length - 1]).toBe('DROP TABLE IF EXISTS profile;');
   });
 });
