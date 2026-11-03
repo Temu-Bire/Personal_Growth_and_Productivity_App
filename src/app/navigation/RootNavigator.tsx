@@ -12,6 +12,7 @@ import { WeeklyReviewScreen } from '../../features/weekly-review/screens/WeeklyR
 import { SkillsScreen } from '../../features/skills/screens/SkillsScreen';
 import { AppearanceSettingsScreen } from '../../features/settings/screens/AppearanceSettingsScreen';
 import { NavigationSettingsScreen } from '../../features/settings/screens/NavigationSettingsScreen';
+import { CategoriesSettingsScreen } from '../../features/settings/screens/CategoriesSettingsScreen';
 import { IdeasScreen } from '../../features/ideas/screens/IdeasScreen';
 
 import { RootStackParamList } from './types';
@@ -76,6 +77,11 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen
         name="NavigationSettingsScreen"
         component={NavigationSettingsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="CategoriesSettingsScreen"
+        component={CategoriesSettingsScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>
