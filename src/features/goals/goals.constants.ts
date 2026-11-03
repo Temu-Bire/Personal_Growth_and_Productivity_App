@@ -64,3 +64,4 @@ export function getGoalCategoryConfig(category?: string): CategoryConfig {
   );
   return found ? GOAL_CATEGORY_CONFIG[found] : GOAL_CATEGORY_CONFIG.Others;
 }
+

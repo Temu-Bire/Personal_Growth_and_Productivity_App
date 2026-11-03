@@ -11,33 +11,15 @@ import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { useCustomizationStore } from '../../store/useCustomizationStore';
 import { useTheme } from '../../hooks/useTheme';
-
-interface MenuItem {
-  name: string;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}
-
-const MENU_ITEMS: MenuItem[] = [
-  { name: 'DashboardScreen', label: 'Dashboard', icon: 'grid-outline' },
-  { name: 'GoalsScreen', label: 'My Goals', icon: 'flag-outline' },
-  { name: 'TasksScreen', label: 'Tasks & Schedule', icon: 'calendar-outline' },
-  { name: 'IdeasScreen', label: 'Ideas', icon: 'bulb-outline' },
-  { name: 'HabitsScreen', label: 'Habits', icon: 'flash-outline' },
-  { name: 'StudyScreen', label: 'Study Planner', icon: 'school-outline' },
-  { name: 'ProjectsScreen', label: 'Projects', icon: 'folder-open-outline' },
-  { name: 'JournalScreen', label: 'Journal', icon: 'book-outline' },
-  { name: 'TradingScreen', label: 'Trading Journal', icon: 'trending-up-outline' },
-  { name: 'AnalyticsScreen', label: 'Analytics', icon: 'pie-chart-outline' },
-  { name: 'SettingsScreen', label: 'Settings', icon: 'settings-outline' },
-  { name: 'HelpScreen', label: 'Help & Support', icon: 'help-circle-outline' },
-];
 
 export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigation, state }) => {
   const { profileName, profileAvatar, profileFocus, setIsLocked } = useSettingsStore();
+  const { sidebarItems } = useCustomizationStore();
   const { colors, typography, radius } = useTheme();
 
+  const visibleItems = sidebarItems.filter((item) => !item.isHidden);
   const activeRouteName = state.routes[state.index]?.name;
 
   // Single unified color for all sidebar items
@@ -101,15 +83,15 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
       <View style={styles.body}>
         {/* Nav List - All items share one unified color */}
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          {MENU_ITEMS.map((item) => {
-            const isActive = activeRouteName === item.name;
+          {visibleItems.map((item) => {
+            const isActive = activeRouteName === item.routeName;
             const itemColor = isActive ? ACTIVE_ITEM_COLOR : INACTIVE_ITEM_COLOR;
 
             return (
               <TouchableOpacity
-                key={item.name}
+                key={item.id}
                 activeOpacity={0.7}
-                onPress={() => navigation.navigate(item.name)}
+                onPress={() => navigation.navigate(item.routeName)}
                 style={[
                   styles.navItem,
                   {

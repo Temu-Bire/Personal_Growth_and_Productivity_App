@@ -81,3 +81,4 @@ export const migrationV4: Migration = {
     `);
   },
 };
+

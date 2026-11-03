@@ -121,3 +121,4 @@ export interface GeneralPreferences {
   soundEnabled: boolean;
   hapticsEnabled: boolean;
 }
+

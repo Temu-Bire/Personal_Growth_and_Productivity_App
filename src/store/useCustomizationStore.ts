@@ -224,3 +224,4 @@ export const useCustomizationStore = create<CustomizationState>((set, get) => ({
     CustomizationRepository.setPreference(PREF_KEYS.GENERAL, updated);
   },
 }));
+

@@ -73,3 +73,4 @@ export const PRESET_PALETTES: PresetPalette[] = [
     drawerBgDark: '#0F172A',
   },
 ];
+
