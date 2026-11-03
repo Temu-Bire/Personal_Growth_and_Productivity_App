@@ -54,6 +54,7 @@ interface CustomizationState {
   // Dashboard
   updateDashboardWidgets: (widgets: DashboardWidgetConfig[]) => void;
   toggleDashboardWidget: (id: string) => void;
+  setWidgetSize: (id: string, size: 'full' | 'half') => void;
   reorderDashboardWidgets: (widgets: DashboardWidgetConfig[]) => void;
   resetDashboardToDefault: () => void;
   // Layouts
@@ -178,6 +179,14 @@ export const useCustomizationStore = create<CustomizationState>((set, get) => ({
     const current = get().dashboardWidgets;
     const updated = current.map((w) =>
       w.id === id ? { ...w, isEnabled: !w.isEnabled } : w
+    );
+    get().updateDashboardWidgets(updated);
+  },
+
+  setWidgetSize: (id: string, size: 'full' | 'half') => {
+    const current = get().dashboardWidgets;
+    const updated = current.map((w) =>
+      w.id === id ? { ...w, size } : w
     );
     get().updateDashboardWidgets(updated);
   },

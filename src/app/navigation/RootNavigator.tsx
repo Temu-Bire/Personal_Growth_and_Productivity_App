@@ -13,6 +13,7 @@ import { SkillsScreen } from '../../features/skills/screens/SkillsScreen';
 import { AppearanceSettingsScreen } from '../../features/settings/screens/AppearanceSettingsScreen';
 import { NavigationSettingsScreen } from '../../features/settings/screens/NavigationSettingsScreen';
 import { CategoriesSettingsScreen } from '../../features/settings/screens/CategoriesSettingsScreen';
+import { DashboardSettingsScreen } from '../../features/settings/screens/DashboardSettingsScreen';
 import { IdeasScreen } from '../../features/ideas/screens/IdeasScreen';
 
 import { RootStackParamList } from './types';
@@ -82,6 +83,11 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen
         name="CategoriesSettingsScreen"
         component={CategoriesSettingsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="DashboardSettingsScreen"
+        component={DashboardSettingsScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>

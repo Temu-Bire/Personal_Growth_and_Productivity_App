@@ -182,6 +182,17 @@ export class TasksRepository {
     return task || null;
   }
 
+  static getOverdueTasks(date: string): Task[] {
+    const db = getDatabase();
+    return db.getAllSync<Task>(
+      `SELECT * FROM tasks
+       WHERE date < ? AND is_completed = 0 AND deleted_at IS NULL
+       ORDER BY date DESC, is_priority DESC
+       LIMIT 3;`,
+      [date]
+    );
+  }
+
   static async getCurrentTaskAsync(date: string): Promise<Task | null> {
     const db = await getDatabaseAsync();
     const task = await db.getFirstAsync<Task>(
