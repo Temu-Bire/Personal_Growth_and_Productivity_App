@@ -210,7 +210,7 @@ export const ProjectsScreen: React.FC = () => {
             >
               <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]}>
+            <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]} numberOfLines={1}>
               My Projects
             </Text>
           </View>
@@ -669,10 +669,13 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   menuBtn: {
     width: 42,
@@ -684,6 +687,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontWeight: '800',
+    flexShrink: 1,
   },
   addBtn: {
     width: 38,
