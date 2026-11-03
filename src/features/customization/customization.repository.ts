@@ -83,6 +83,57 @@ export const DEFAULT_INITIAL_UNITS: { entity_type: string; name: string; abbrevi
   { entity_type: 'goals', name: 'Items / Milestones', abbreviation: 'items' },
 ];
 
+export const DEFAULT_INITIAL_FIELDS: {
+  entity_type: string;
+  field_key: string;
+  label: string;
+  field_type: CustomField['field_type'];
+  placeholder: string;
+  help_text: string;
+  is_required: number;
+  section: string;
+  options_json?: string;
+}[] = [
+  // Goals
+  { entity_type: 'goals', field_key: 'title', label: 'Goal Title', field_type: 'text', placeholder: 'e.g. Master React Native', help_text: 'The main goal objective', is_required: 1, section: 'General' },
+  { entity_type: 'goals', field_key: 'due_date', label: 'Target Due Date', field_type: 'date', placeholder: 'YYYY-MM-DD', help_text: 'Target completion deadline', is_required: 1, section: 'Planning' },
+  { entity_type: 'goals', field_key: 'category', label: 'Category', field_type: 'dropdown', placeholder: 'Select category', help_text: 'Domain area', is_required: 1, section: 'Planning', options_json: JSON.stringify(['Health', 'Skills', 'Personality', 'Career', 'Spiritual', 'Others']) },
+  { entity_type: 'goals', field_key: 'target_value', label: 'Target Value', field_type: 'number', placeholder: '100', help_text: 'Numeric completion goal', is_required: 1, section: 'Metrics' },
+  { entity_type: 'goals', field_key: 'unit', label: 'Measurement Unit', field_type: 'dropdown', placeholder: '% or hrs', help_text: 'Unit of progress measurement', is_required: 1, section: 'Metrics', options_json: JSON.stringify(['%', 'hrs', 'items', 'pages']) },
+
+  // Projects
+  { entity_type: 'projects', field_key: 'title', label: 'Project Name', field_type: 'text', placeholder: 'e.g. Personal Website', help_text: 'Core project title', is_required: 1, section: 'General' },
+  { entity_type: 'projects', field_key: 'description', label: 'Overview & Notes', field_type: 'long_text', placeholder: 'Scope and notes...', help_text: 'Project summary', is_required: 0, section: 'General' },
+  { entity_type: 'projects', field_key: 'due_date', label: 'Target Due Date', field_type: 'date', placeholder: 'YYYY-MM-DD', help_text: 'Target deadline', is_required: 1, section: 'Planning' },
+  { entity_type: 'projects', field_key: 'category', label: 'Category', field_type: 'dropdown', placeholder: 'Select category', help_text: 'Area of work', is_required: 0, section: 'Planning', options_json: JSON.stringify(['Mobile App', 'Web Dev', 'Career', 'Personal']) },
+
+  // Habits
+  { entity_type: 'habits', field_key: 'name', label: 'Habit Name', field_type: 'text', placeholder: 'e.g. Read 20 pages', help_text: 'Daily routine name', is_required: 1, section: 'General' },
+  { entity_type: 'habits', field_key: 'target_count', label: 'Daily Target', field_type: 'number', placeholder: '1', help_text: 'Target quantity per day', is_required: 1, section: 'Target' },
+  { entity_type: 'habits', field_key: 'unit', label: 'Unit', field_type: 'dropdown', placeholder: 'times', help_text: 'Repetition or measurement unit', is_required: 1, section: 'Target', options_json: JSON.stringify(['times', 'mins', 'pages', 'km', 'cups', 'hrs']) },
+  { entity_type: 'habits', field_key: 'frequency', label: 'Frequency', field_type: 'dropdown', placeholder: 'daily', help_text: 'Tracking cycle', is_required: 1, section: 'Schedule', options_json: JSON.stringify(['daily', 'weekly']) },
+
+  // Study
+  { entity_type: 'study', field_key: 'subject_name', label: 'Subject / Course', field_type: 'text', placeholder: 'e.g. Machine Learning', help_text: 'Course title', is_required: 1, section: 'General' },
+  { entity_type: 'study', field_key: 'topic', label: 'Current Topic', field_type: 'text', placeholder: 'e.g. Deep Neural Networks', help_text: 'Topic or chapter', is_required: 0, section: 'General' },
+  { entity_type: 'study', field_key: 'target_hours', label: 'Target Hours', field_type: 'decimal', placeholder: '2.5', help_text: 'Hours per session', is_required: 1, section: 'Metrics' },
+
+  // Journal
+  { entity_type: 'journal', field_key: 'content', label: 'Journal Entry', field_type: 'long_text', placeholder: 'What happened today and what did you learn?', help_text: 'Detailed reflection', is_required: 1, section: 'Content' },
+  { entity_type: 'journal', field_key: 'mood', label: 'Mood Rating', field_type: 'dropdown', placeholder: 'Select mood', help_text: 'Emotional state (1 to 5)', is_required: 1, section: 'Metadata', options_json: JSON.stringify(['1 - Terrible', '2 - Bad', '3 - Neutral', '4 - Good', '5 - Great']) },
+
+  // Trading
+  { entity_type: 'trading', field_key: 'pair', label: 'Asset / Pair', field_type: 'text', placeholder: 'e.g. EUR/USD or BTC/USDT', help_text: 'Traded asset', is_required: 1, section: 'Trade Details' },
+  { entity_type: 'trading', field_key: 'direction', label: 'Direction', field_type: 'dropdown', placeholder: 'Long / Short', help_text: 'Trade side', is_required: 1, section: 'Trade Details', options_json: JSON.stringify(['Long / Buy', 'Short / Sell']) },
+  { entity_type: 'trading', field_key: 'entry_price', label: 'Entry Price', field_type: 'decimal', placeholder: '0.00', help_text: 'Execution price', is_required: 1, section: 'Numbers' },
+  { entity_type: 'trading', field_key: 'exit_price', label: 'Exit Price', field_type: 'decimal', placeholder: '0.00', help_text: 'Closed price', is_required: 0, section: 'Numbers' },
+  { entity_type: 'trading', field_key: 'pnl', label: 'Realized PnL ($)', field_type: 'decimal', placeholder: '0.00', help_text: 'Profit or loss', is_required: 0, section: 'Numbers' },
+
+  // Challenges
+  { entity_type: 'challenges', field_key: 'title', label: 'Challenge Title', field_type: 'text', placeholder: 'e.g. 30 Days of Code', help_text: 'Challenge goal', is_required: 1, section: 'General' },
+  { entity_type: 'challenges', field_key: 'duration_days', label: 'Duration (Days)', field_type: 'number', placeholder: '30', help_text: 'Number of consecutive days', is_required: 1, section: 'General' },
+];
+
 export class CustomizationRepository {
   // ===================== USER PREFERENCES =====================
   static getPreference<T>(key: string, defaultValue: T): T {
@@ -249,6 +300,87 @@ export class CustomizationRepository {
   }
 
   // ===================== CUSTOM FIELDS (FORM BUILDER) =====================
+  static ensureDefaultFields(entityType?: string): void {
+    try {
+      const db = getDatabase();
+      const count = db.getFirstSync<{ count: number }>(
+        entityType
+          ? 'SELECT COUNT(*) as count FROM custom_fields WHERE entity_type = ?'
+          : 'SELECT COUNT(*) as count FROM custom_fields',
+        entityType ? [entityType] : []
+      );
+
+      if (!count || count.count === 0) {
+        const fieldsToSeed = entityType
+          ? DEFAULT_INITIAL_FIELDS.filter((f) => f.entity_type === entityType)
+          : DEFAULT_INITIAL_FIELDS;
+
+        const now = new Date().toISOString();
+        fieldsToSeed.forEach((f, idx) => {
+          db.runSync(
+            `INSERT INTO custom_fields (
+              id, entity_type, field_key, label, field_type, placeholder, help_text,
+              options_json, is_required, is_system, is_hidden, section, sort_order, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?)`,
+            [
+              generateId('fld'),
+              f.entity_type,
+              f.field_key,
+              f.label,
+              f.field_type,
+              f.placeholder,
+              f.help_text,
+              f.options_json || null,
+              f.is_required,
+              f.section,
+              idx,
+              now,
+              now,
+            ]
+          );
+        });
+      }
+    } catch {
+      // safe fallback
+    }
+  }
+
+  static resetFieldsToDefault(entityType: string): void {
+    try {
+      const db = getDatabase();
+      // Delete existing fields for this entity
+      db.runSync('DELETE FROM custom_fields WHERE entity_type = ?', [entityType]);
+      // Re-seed default fields
+      const fieldsToSeed = DEFAULT_INITIAL_FIELDS.filter((f) => f.entity_type === entityType);
+      const now = new Date().toISOString();
+      fieldsToSeed.forEach((f, idx) => {
+        db.runSync(
+          `INSERT INTO custom_fields (
+            id, entity_type, field_key, label, field_type, placeholder, help_text,
+            options_json, is_required, is_system, is_hidden, section, sort_order, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?)`,
+          [
+            generateId('fld'),
+            f.entity_type,
+            f.field_key,
+            f.label,
+            f.field_type,
+            f.placeholder,
+            f.help_text,
+            f.options_json || null,
+            f.is_required,
+            f.section,
+            idx,
+            now,
+            now,
+          ]
+        );
+      });
+    } catch {
+      // safe fallback
+    }
+  }
+
   static getFields(entityType: string): CustomField[] {
     try {
       const db = getDatabase();

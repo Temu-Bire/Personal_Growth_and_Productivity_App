@@ -4,9 +4,13 @@ export type FieldType =
   | 'text'
   | 'long_text'
   | 'number'
+  | 'decimal'
   | 'dropdown'
+  | 'multi_select'
   | 'checkbox'
+  | 'toggle'
   | 'date'
+  | 'time'
   | 'url';
 
 export interface CustomCategory {
