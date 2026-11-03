@@ -12,11 +12,13 @@ interface Props {
 }
 
 export const LockScreen: React.FC<Props> = ({ navigation }) => {
-  const { profileName, appLockPin, useBiometrics, setIsLocked } = useSettingsStore();
+  const { profileName, appLockPin, useBiometrics, setIsLocked, setAppLock } = useSettingsStore();
   const { typography } = useTheme();
 
   const [enteredPin, setEnteredPin] = useState('');
   const [hasError, setHasError] = useState(false);
+
+  const effectivePin = appLockPin || '0000';
 
   const handleUnlockSuccess = useCallback(() => {
     try {
@@ -46,7 +48,7 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
       setHasError(false);
 
       if (next.length === 4) {
-        if (next === appLockPin) {
+        if (next === effectivePin) {
           handleUnlockSuccess();
         } else {
           try {
@@ -76,6 +78,24 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
     } else {
       Alert.alert('Authentication Failed', 'Please enter your PIN.');
     }
+  };
+
+  const handleForgotPin = () => {
+    Alert.alert(
+      'Reset PIN',
+      'Forgot your PIN? You can reset your App Lock to regain access without losing your personal data.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset PIN',
+          style: 'destructive',
+          onPress: async () => {
+            await setAppLock({ enabled: false, pin: '', useBiometrics: false });
+            handleUnlockSuccess();
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -145,9 +165,9 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
         })}
       </View>
 
-      {/* Biometrics Action */}
+      {/* Biometrics and Recovery Actions */}
       <View style={styles.footer}>
-        {useBiometrics ? (
+        {useBiometrics && (
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={handleBiometricsClick}
@@ -158,9 +178,19 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
               Use fingerprint / Face ID
             </Text>
           </TouchableOpacity>
-        ) : (
-          <View style={{ height: 44 }} />
         )}
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handleForgotPin}
+          style={{ paddingVertical: 10, alignItems: 'center' }}
+          accessibilityRole="button"
+          accessibilityLabel="Forgot PIN"
+        >
+          <Text style={[typography.caption, { color: '#A7F3D0', opacity: 0.85 }]}>
+            Forgot PIN? Tap to reset
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

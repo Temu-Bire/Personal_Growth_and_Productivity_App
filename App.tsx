@@ -4,12 +4,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { AppProviders } from './src/app/providers/AppProviders';
 import { RootNavigator } from './src/app/navigation/RootNavigator';
+import { navigationRef } from './src/app/navigation/navigationRef';
 import { useSettingsStore } from './src/store/useSettingsStore';
 import { useTheme } from './src/hooks/useTheme';
 
 function AppContent() {
   const { isDark } = useTheme();
-  const { appLockEnabled, lockOnMinimize, setIsLocked } = useSettingsStore();
+  const { appLockEnabled, lockOnMinimize, isLocked, setIsLocked } = useSettingsStore();
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
@@ -17,16 +18,22 @@ function AppContent() {
         if (appLockEnabled && lockOnMinimize) {
           setIsLocked(true);
         }
+      } else if (nextAppState === 'active') {
+        if (appLockEnabled && isLocked) {
+          if (navigationRef.isReady() && navigationRef.getCurrentRoute()?.name !== 'LockScreen') {
+            navigationRef.navigate('LockScreen');
+          }
+        }
       }
     });
 
     return () => {
       subscription.remove();
     };
-  }, [appLockEnabled, lockOnMinimize, setIsLocked]);
+  }, [appLockEnabled, lockOnMinimize, isLocked, setIsLocked]);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <RootNavigator />
     </NavigationContainer>

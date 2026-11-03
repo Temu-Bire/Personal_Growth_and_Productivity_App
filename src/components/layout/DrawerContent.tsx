@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Alert,
 } from 'react-native';
 import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,8 +16,15 @@ import { useCustomizationStore } from '../../store/useCustomizationStore';
 import { useTheme } from '../../hooks/useTheme';
 
 export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigation, state }) => {
-  const { profileName, profileAvatar, profileFocus, setIsLocked } = useSettingsStore();
-  const { sidebarItems } = useCustomizationStore();
+  const profileName = useSettingsStore((s) => s.profileName);
+  const profileAvatar = useSettingsStore((s) => s.profileAvatar);
+  const profileFocus = useSettingsStore((s) => s.profileFocus);
+  const setIsLocked = useSettingsStore((s) => s.setIsLocked);
+  const appLockEnabled = useSettingsStore((s) => s.appLockEnabled);
+  const appLockPin = useSettingsStore((s) => s.appLockPin);
+  const setAppLock = useSettingsStore((s) => s.setAppLock);
+
+  const sidebarItems = useCustomizationStore((s) => s.sidebarItems);
   const { colors, typography, radius } = useTheme();
 
   const visibleItems = sidebarItems.filter((item) => !item.isHidden);
@@ -27,8 +35,36 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
   const ACTIVE_ITEM_COLOR = '#FFFFFF';
 
   const handleLockNow = () => {
+    if (!appLockEnabled || !appLockPin) {
+      Alert.alert(
+        'App Lock PIN Required',
+        'You have not set up a 4-digit PIN yet. Would you like to configure your PIN now, or activate quick lock with default PIN (0000)?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Configure PIN',
+            onPress: () => {
+              navigation.closeDrawer();
+              navigation.navigate('AppLockSettingsScreen' as any);
+            },
+          },
+          {
+            text: 'Quick Lock (0000)',
+            onPress: async () => {
+              await setAppLock({ enabled: true, pin: '0000' });
+              setIsLocked(true);
+              navigation.closeDrawer();
+              navigation.navigate('LockScreen' as any);
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     setIsLocked(true);
     navigation.closeDrawer();
+    navigation.navigate('LockScreen' as any);
   };
 
   const handleOpenProfile = () => {

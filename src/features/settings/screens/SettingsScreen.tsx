@@ -33,6 +33,9 @@ export const SettingsScreen: React.FC = () => {
     setThemeMode,
     updateProfile,
     setIsLocked,
+    appLockEnabled,
+    appLockPin,
+    setAppLock,
   } = useSettingsStore();
 
   const { colors, typography, radius } = useTheme();
@@ -88,6 +91,29 @@ export const SettingsScreen: React.FC = () => {
   };
 
   const handleLockNow = () => {
+    if (!appLockEnabled || !appLockPin) {
+      Alert.alert(
+        'App Lock PIN Required',
+        'You have not configured a 4-digit PIN yet. Would you like to configure your PIN now, or activate quick lock with default PIN (0000)?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Configure PIN',
+            onPress: () => navigation.navigate('AppLockSettingsScreen'),
+          },
+          {
+            text: 'Quick Lock (0000)',
+            onPress: async () => {
+              await setAppLock({ enabled: true, pin: '0000' });
+              setIsLocked(true);
+              navigation.navigate('LockScreen');
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     setIsLocked(true);
     navigation.navigate('LockScreen');
   };
