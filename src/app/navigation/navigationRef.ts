@@ -8,3 +8,4 @@ export function navigateTo(name: keyof RootStackParamList, params?: any) {
     navigationRef.navigate(name as any, params);
   }
 }
+
