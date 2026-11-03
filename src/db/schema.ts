@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS study_sessions (
   created_at TEXT NOT NULL,
   FOREIGN KEY (subject_id) REFERENCES subjects (id) ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_study_sessions_sub ON study_sessions(subject_id);
 
 CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY,
@@ -157,6 +158,8 @@ CREATE TABLE IF NOT EXISTS goals (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_goals_due ON goals(due_date);
+CREATE INDEX IF NOT EXISTS idx_goals_completed ON goals(is_completed);
 
 CREATE TABLE IF NOT EXISTS goal_milestones (
   id TEXT PRIMARY KEY,
@@ -187,6 +190,7 @@ CREATE TABLE IF NOT EXISTS skill_logs (
   created_at TEXT NOT NULL,
   FOREIGN KEY (skill_id) REFERENCES skills (id) ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_skill_logs_skill ON skill_logs(skill_id);
 
 CREATE TABLE IF NOT EXISTS weekly_reviews (
   id TEXT PRIMARY KEY,

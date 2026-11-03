@@ -10,7 +10,7 @@ interface CustomFieldsBadgeRowProps {
   containerStyle?: StyleProp<ViewStyle>;
 }
 
-export const CustomFieldsBadgeRow: React.FC<CustomFieldsBadgeRowProps> = ({
+export const CustomFieldsBadgeRow: React.FC<CustomFieldsBadgeRowProps> = React.memo(({
   entityType,
   entityId,
   containerStyle,
@@ -48,7 +48,7 @@ export const CustomFieldsBadgeRow: React.FC<CustomFieldsBadgeRowProps> = ({
       })}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

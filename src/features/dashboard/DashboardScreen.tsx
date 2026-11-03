@@ -29,8 +29,8 @@ const MOOD_EMOJIS: Record<number, string> = {
 
 export const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { profileName } = useSettingsStore();
-  const { dashboardWidgets } = useCustomizationStore();
+  const profileName = useSettingsStore((s) => s.profileName);
+  const dashboardWidgets = useCustomizationStore((s) => s.dashboardWidgets);
   const { colors, typography, radius } = useTheme();
 
   const todayStr = new Date().toISOString().split('T')[0];
