@@ -35,4 +35,11 @@ export type RootStackParamList = {
   DataBackupScreen: undefined;
   WeeklyReviewScreen: undefined;
   SkillsScreen: undefined;
+  AppearanceSettingsScreen: undefined;
+  NavigationSettingsScreen: undefined;
+  CategoriesSettingsScreen: undefined;
+  DashboardSettingsScreen: undefined;
+  FormBuilderSettingsScreen: undefined;
+  LayoutSettingsScreen: undefined;
+  GeneralPreferencesScreen: undefined;
 };

@@ -10,6 +10,7 @@ import { AppLockSettingsScreen } from '../../features/settings/screens/AppLockSe
 import { DataBackupScreen } from '../../features/settings/screens/DataBackupScreen';
 import { WeeklyReviewScreen } from '../../features/weekly-review/screens/WeeklyReviewScreen';
 import { SkillsScreen } from '../../features/skills/screens/SkillsScreen';
+import { AppearanceSettingsScreen } from '../../features/settings/screens/AppearanceSettingsScreen';
 import { IdeasScreen } from '../../features/ideas/screens/IdeasScreen';
 
 import { RootStackParamList } from './types';
@@ -64,6 +65,11 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen
         name="Ideas"
         component={IdeasScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="AppearanceSettingsScreen"
+        component={AppearanceSettingsScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>

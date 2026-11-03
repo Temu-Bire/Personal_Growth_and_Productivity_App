@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import { getDatabaseAsync } from '../../db/client';
 import { seedInitialDataAsync } from '../../db/seed';
+import { useCustomizationStore } from '../../store/useCustomizationStore';
 
 export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isReady, setIsReady] = useState(false);
@@ -12,6 +13,7 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setInitError(null);
       const db = await getDatabaseAsync();
       await seedInitialDataAsync(db);
+      useCustomizationStore.getState().loadCustomization();
       setIsReady(true);
     } catch (e: unknown) {
       console.error('Failed to initialize GrowPro offline database:', e);
