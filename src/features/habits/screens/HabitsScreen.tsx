@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -16,7 +15,6 @@ import { ProgressBar } from '../../../components/ui/ProgressBar';
 import { BottomSheetModal } from '../../../components/ui/BottomSheetModal';
 import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { BarChart } from '../../../components/charts/BarChart';
 import { useTheme } from '../../../hooks/useTheme';
 import { useCustomizationStore } from '../../../store/useCustomizationStore';
 import { CustomizationRepository } from '../../customization/customization.repository';
@@ -24,7 +22,19 @@ import { ViewModeSwitcher } from '../../customization/components/ViewModeSwitche
 import { CustomFieldsSection } from '../../customization/components/CustomFieldsSection';
 import { CustomFieldsBadgeRow } from '../../customization/components/CustomFieldsBadgeRow';
 import { sortItemsByLayout } from '../../customization/layout.utils';
-import { HabitsRepository, Habit } from '../habits.repository';
+import {
+  FormInput,
+  FormTextArea,
+  FormSelect,
+  FormWeekdaysPicker,
+} from '../../../components/forms';
+import { HabitsRepository, Habit, HabitFrequency } from '../habits.repository';
+
+const FREQUENCY_OPTIONS = [
+  { label: 'Daily (Every scheduled day)', value: 'daily', icon: 'today-outline' as const },
+  { label: 'Weekly (Target repetitions per week)', value: 'weekly', icon: 'calendar-outline' as const },
+  { label: 'Monthly (Target repetitions per month)', value: 'monthly', icon: 'time-outline' as const },
+];
 
 export const HabitsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -33,38 +43,38 @@ export const HabitsScreen: React.FC = () => {
   const todayStr = new Date().toISOString().split('T')[0];
 
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [filterFrequency, setFilterFrequency] = useState<'all' | HabitFrequency>('all');
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [selectedHabitDetails, setSelectedHabitDetails] = useState<(Habit & { totalCompletedDays?: number; completionHistory?: any[] }) | null>(null);
+  const [selectedHabitDetails, setSelectedHabitDetails] = useState<any | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [availableUnits, setAvailableUnits] = useState<string[]>(['times', 'mins', 'pages', 'km', 'cups', 'hrs']);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
 
-  // Form State
+  // Add / Edit Form State
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [targetCount, setTargetCount] = useState('1');
   const [unit, setUnit] = useState('times');
-  const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
-  const [color, setColor] = useState('#1E8E4E');
+  const [frequency, setFrequency] = useState<HabitFrequency>('daily');
+  const [scheduleDays, setScheduleDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [preferredTime, setPreferredTime] = useState('08:00');
+  const [durationMinutes, setDurationMinutes] = useState('15');
+  const [color, setColor] = useState('#10B981');
   const [addCustomValues, setAddCustomValues] = useState<Record<string, any>>({});
   const [editCustomValues, setEditCustomValues] = useState<Record<string, any>>({});
+
+  // Historical Completion Edit State in Details Modal
+  const [editingHistoryDate, setEditingHistoryDate] = useState<string | null>(null);
+  const [historyCount, setHistoryCount] = useState('1');
+  const [historyNotes, setHistoryNotes] = useState('');
 
   const loadHabits = useCallback(() => {
     const list = HabitsRepository.getAllWithProgress(todayStr);
     setHabits(list);
 
-    // If detail is open, refresh detail too
     if (selectedHabitDetails) {
       const refreshed = HabitsRepository.getHabitDetails(selectedHabitDetails.id, todayStr);
       setSelectedHabitDetails(refreshed);
     }
-
-    // Load custom measurement units
-    const customUnits = CustomizationRepository.getUnits('habits');
-    const baseUnits = ['times', 'mins', 'pages', 'km', 'cups', 'hrs'];
-    customUnits.forEach((u) => {
-      const unitKey = u.abbreviation || u.name.toLowerCase();
-      if (!baseUnits.includes(unitKey)) baseUnits.push(unitKey);
-    });
-    setAvailableUnits(baseUnits);
   }, [todayStr, selectedHabitDetails?.id]);
 
   useFocusEffect(
@@ -72,6 +82,16 @@ export const HabitsScreen: React.FC = () => {
       loadHabits();
     }, [loadHabits])
   );
+
+  const filteredHabits = useMemo(() => {
+    let list = habits;
+    if (filterFrequency !== 'all') {
+      list = habits.filter((h) => h.frequency === filterFrequency);
+    }
+    return sortItemsByLayout(list, pageLayout);
+  }, [habits, filterFrequency, pageLayout]);
+
+  const viewMode = pageLayout?.viewMode || 'card';
 
   const handleToggleHabit = (id: string) => {
     HabitsRepository.toggleOrIncrement(id, todayStr);
@@ -85,20 +105,29 @@ export const HabitsScreen: React.FC = () => {
 
   const handleOpenAdd = () => {
     setName('');
+    setDescription('');
     setTargetCount('1');
     setUnit('times');
     setFrequency('daily');
-    setColor('#1E8E4E');
+    setScheduleDays([0, 1, 2, 3, 4, 5, 6]);
+    setPreferredTime('08:00');
+    setDurationMinutes('15');
+    setColor('#10B981');
     setAddCustomValues({});
     setIsAddOpen(true);
   };
 
   const handleOpenEdit = (habit: Habit) => {
+    setEditingHabit(habit);
     setName(habit.name);
+    setDescription(habit.description || '');
     setTargetCount(String(habit.target_count || 1));
     setUnit(habit.unit || 'times');
     setFrequency(habit.frequency || 'daily');
-    setColor(habit.color || '#1E8E4E');
+    setScheduleDays(habit.parsedDays || [0, 1, 2, 3, 4, 5, 6]);
+    setPreferredTime(habit.preferred_time || '08:00');
+    setDurationMinutes(String(habit.duration_minutes || 15));
+    setColor(habit.color || '#10B981');
     const existingVals = CustomizationRepository.getFieldValues('habits', habit.id);
     setEditCustomValues(existingVals);
     setIsEditOpen(true);
@@ -112,10 +141,13 @@ export const HabitsScreen: React.FC = () => {
 
     const created = HabitsRepository.create({
       name: name.trim(),
+      description: description.trim(),
       targetCount: parseInt(targetCount, 10) || 1,
       unit: unit || 'times',
       frequency,
-      icon: 'flash-outline',
+      scheduleDays,
+      preferredTime,
+      durationMinutes: parseInt(durationMinutes, 10) || 15,
       color,
     });
 
@@ -128,40 +160,51 @@ export const HabitsScreen: React.FC = () => {
   };
 
   const handleSaveEdit = () => {
-    if (!selectedHabitDetails || !name.trim()) {
+    if (!editingHabit || !name.trim()) {
       Alert.alert('Required', 'Please enter habit name.');
       return;
     }
 
-    HabitsRepository.update(selectedHabitDetails.id, {
+    HabitsRepository.update(editingHabit.id, {
       name: name.trim(),
+      description: description.trim(),
       targetCount: parseInt(targetCount, 10) || 1,
       unit: unit || 'times',
       frequency,
+      scheduleDays,
+      preferredTime,
+      durationMinutes: parseInt(durationMinutes, 10) || 15,
       color,
     });
 
     if (Object.keys(editCustomValues).length > 0) {
-      CustomizationRepository.saveFieldValues('habits', selectedHabitDetails.id, editCustomValues);
+      CustomizationRepository.saveFieldValues('habits', editingHabit.id, editCustomValues);
     }
 
     setIsEditOpen(false);
+    setEditingHabit(null);
     loadHabits();
   };
 
-  const handleDeleteHabit = (habitId: string, habitName: string) => {
+  const handleArchiveHabit = (id: string) => {
+    HabitsRepository.archive(id);
+    setSelectedHabitDetails(null);
+    loadHabits();
+  };
+
+  const handleDeleteHabit = (id: string, habitName: string) => {
     Alert.alert(
       'Delete Habit',
-      `Are you sure you want to delete "${habitName}"? All its logs and streak history will be permanently removed.`,
+      `Permanently delete "${habitName}" and its completion history? To preserve your past completion analytics, choose Archive instead.`,
       [
         { text: 'Cancel', style: 'cancel' },
+        { text: 'Archive Habit', onPress: () => handleArchiveHabit(id) },
         {
-          text: 'Delete',
+          text: 'Delete Permanently',
           style: 'destructive',
           onPress: () => {
-            HabitsRepository.delete(habitId);
+            HabitsRepository.delete(id);
             setSelectedHabitDetails(null);
-            setIsEditOpen(false);
             loadHabits();
           },
         },
@@ -169,22 +212,23 @@ export const HabitsScreen: React.FC = () => {
     );
   };
 
-  // Streak calculations across all habits
-  const topStreak = habits.length > 0 ? Math.max(...habits.map((h) => h.streak || 0), 12) : 12;
-  const combined7Days = [1, 1, 0, 1, 1, 1, 1];
+  const handleSaveHistoricalCompletion = (habitId: string) => {
+    if (!editingHistoryDate) return;
+    const count = parseInt(historyCount, 10) || 0;
+    HabitsRepository.editHistoricalCompletion(habitId, editingHistoryDate, count, historyNotes);
+    setEditingHistoryDate(null);
+    setHistoryNotes('');
+    loadHabits();
+  };
 
-  const sortedHabits = useMemo(() => {
-    return sortItemsByLayout(habits, pageLayout);
-  }, [habits, pageLayout]);
-
-  const viewMode = pageLayout?.viewMode || 'card';
-  const visibleFields = pageLayout?.visibleFields || [
-    'show_dates',
-    'show_categories',
-    'show_progress',
-    'show_notes',
-    'show_status',
-  ];
+  // Best overall streak across habits
+  const overallStreaks = useMemo(() => {
+    let topStreak = 0;
+    habits.forEach((h) => {
+      if ((h.streak || 0) > topStreak) topStreak = h.streak || 0;
+    });
+    return topStreak;
+  }, [habits]);
 
   return (
     <Screen backgroundColor={colors.background}>
@@ -202,7 +246,7 @@ export const HabitsScreen: React.FC = () => {
               <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]} numberOfLines={1}>
-              Habits
+              Habit Tracker
             </Text>
           </View>
 
@@ -219,168 +263,75 @@ export const HabitsScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Streak Banner */}
-        <Card style={[styles.streakBanner, { backgroundColor: colors.orangeSoft, borderColor: '#FDE68A' }]}>
+        {/* Streak & Consistency Banner */}
+        <Card style={[styles.streakBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.streakInfo}>
             <View style={styles.streakRow}>
-              <Text style={{ fontSize: 22, marginRight: 6 }}>🔥</Text>
-              <Text style={[typography.h2, { color: '#92400E', fontWeight: '800' }]}>
-                {topStreak} Day Streak
-              </Text>
+              <View style={[styles.fireCircle, { backgroundColor: colors.accentMint }]}>
+                <Ionicons name="flame" size={20} color={colors.primary} />
+              </View>
+              <View style={{ marginLeft: 10 }}>
+                <Text style={[typography.h3, { color: colors.textPrimary }]}>
+                  {overallStreaks > 0 ? `${overallStreaks} Day Active Streak` : 'Start Today\'s Habit Streak'}
+                </Text>
+                <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                  Consistency over intensity creates permanent identity.
+                </Text>
+              </View>
             </View>
-            <Text style={[typography.caption, { color: '#B45309', marginTop: 2 }]}>
-              Unstoppable! Keep building your habits.
-            </Text>
-          </View>
-          <View style={styles.miniChart}>
-            <BarChart
-              data={combined7Days}
-              width={80}
-              height={44}
-              barWidth={6}
-              positiveColor="#F59E0B"
-            />
           </View>
         </Card>
 
-        {/* Habits List */}
-        <ScrollView
-          style={styles.list}
-          contentContainerStyle={[
-            styles.scrollListPadding,
-            viewMode === 'grid' && styles.gridContainer,
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {sortedHabits.length === 0 ? (
+        {/* Frequency Filter Chips */}
+        <View style={styles.filterBar}>
+          {[
+            { key: 'all', label: 'All Habits' },
+            { key: 'daily', label: 'Daily' },
+            { key: 'weekly', label: 'Weekly' },
+            { key: 'monthly', label: 'Monthly' },
+          ].map((tab) => {
+            const isSelected = filterFrequency === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                onPress={() => setFilterFrequency(tab.key as any)}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: isSelected ? colors.primary : colors.inputBg,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                    borderRadius: radius.round,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    typography.captionBold,
+                    { color: isSelected ? '#FFFFFF' : colors.textSecondary },
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Habits Feed */}
+        <ScrollView style={styles.list} contentContainerStyle={styles.scrollListPadding} showsVerticalScrollIndicator={false}>
+          {filteredHabits.length === 0 ? (
             <EmptyState
               icon="flash-outline"
-              title="No habits yet"
-              description="Build daily discipline and positive routines."
-              actionTitle="+ Add Habit"
+              title="No habits scheduled"
+              description="Build routines with measurable daily, weekly, or monthly targets."
+              actionTitle="+ Create First Habit"
               onAction={handleOpenAdd}
             />
           ) : (
-            sortedHabits.map((habit) => {
-              const isDone = (habit.todayCount || 0) >= habit.target_count;
+            filteredHabits.map((habit) => {
+              const isDoneToday = (habit.todayCount || 0) >= (habit.target_count || 1);
+              const progress = habit.progressPercent || 0;
 
-              // 1. Compact View Mode
-              if (viewMode === 'compact') {
-                return (
-                  <Card key={habit.id} style={styles.compactCard}>
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onPress={() => handleOpenDetail(habit)}
-                      style={styles.compactRow}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
-                          {habit.name}
-                        </Text>
-                        <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                          {habit.todayCount || 0}/{habit.target_count} {habit.unit}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => handleToggleHabit(habit.id)}
-                        style={[
-                          styles.miniCheckBtn,
-                          {
-                            backgroundColor: isDone ? colors.primary : colors.accentMint,
-                            borderColor: colors.primary,
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name={isDone ? 'checkmark' : 'add'}
-                          size={14}
-                          color={isDone ? '#FFFFFF' : colors.primary}
-                        />
-                      </TouchableOpacity>
-                    </TouchableOpacity>
-                  </Card>
-                );
-              }
-
-              // 2. List View Mode
-              if (viewMode === 'list') {
-                return (
-                  <Card key={habit.id} style={styles.listCard}>
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      onPress={() => handleOpenDetail(habit)}
-                      style={styles.listRow}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
-                          {habit.name}
-                        </Text>
-                        <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                          {habit.todayCount || 0} of {habit.target_count} {habit.unit} · {habit.streak || 0}d streak
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => handleToggleHabit(habit.id)}
-                        style={[
-                          styles.checkBtn,
-                          {
-                            backgroundColor: isDone ? colors.primary : 'transparent',
-                            borderColor: isDone ? colors.primary : colors.border,
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name={isDone ? 'checkmark' : 'add'}
-                          size={18}
-                          color={isDone ? '#FFFFFF' : colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                    </TouchableOpacity>
-                  </Card>
-                );
-              }
-
-              // 3. Grid View Mode
-              if (viewMode === 'grid') {
-                return (
-                  <Card key={habit.id} style={styles.gridCard}>
-                    <TouchableOpacity activeOpacity={0.8} onPress={() => handleOpenDetail(habit)}>
-                      <View style={[styles.iconBox, { backgroundColor: (habit.color || colors.primary) + '22', marginBottom: 8 }]}>
-                        <Ionicons
-                          name={(habit.icon as any) || 'flash-outline'}
-                          size={20}
-                          color={habit.color || colors.primary}
-                        />
-                      </View>
-                      <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
-                        {habit.name}
-                      </Text>
-                      <ProgressBar
-                        progress={habit.progressPercent || 0}
-                        height={4}
-                        color={habit.color || colors.primary}
-                        style={{ marginVertical: 6 }}
-                      />
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={[typography.caption, { color: colors.textSecondary, fontSize: 11 }]}>
-                          {habit.todayCount || 0}/{habit.target_count} {habit.unit}
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => handleToggleHabit(habit.id)}
-                          style={[
-                            styles.miniCheckBtn,
-                            { backgroundColor: isDone ? colors.primary : colors.accentMint },
-                          ]}
-                        >
-                          <Ionicons name={isDone ? 'checkmark' : 'add'} size={12} color={isDone ? '#FFFFFF' : colors.primary} />
-                        </TouchableOpacity>
-                      </View>
-                    </TouchableOpacity>
-                  </Card>
-                );
-              }
-
-              // 4. Card View Mode (Default)
               return (
                 <TouchableOpacity
                   key={habit.id}
@@ -389,63 +340,66 @@ export const HabitsScreen: React.FC = () => {
                 >
                   <Card style={styles.habitCard}>
                     <View style={styles.habitRow}>
-                      <View style={[styles.iconBox, { backgroundColor: colors.accentMint }]}>
-                        <Ionicons
-                          name={(habit.icon as any) || 'flash-outline'}
-                          size={22}
-                          color={habit.color || colors.primary}
-                        />
-                      </View>
-
-                      <View style={styles.habitDetails}>
-                        <View style={styles.titleLine}>
-                          <Text style={[styles.habitName, typography.bodyBold, { color: colors.textPrimary }]}>
-                            {habit.name}
-                          </Text>
-                          {visibleFields.includes('show_progress') && (
-                            <Text style={[typography.captionBold, { color: isDone ? colors.primary : colors.textMuted }]}>
-                              {habit.progressPercent}%
-                            </Text>
-                          )}
-                        </View>
-
-                        {visibleFields.includes('show_progress') && (
-                          <View style={styles.progressRow}>
-                            <ProgressBar
-                              progress={habit.progressPercent || 0}
-                              height={6}
-                              color={habit.color || colors.primary}
-                              style={{ flex: 1, marginRight: 12 }}
-                            />
-                            <Text style={[typography.caption, { color: colors.textMuted }]}>
-                              {habit.todayCount || 0} / {habit.target_count} {habit.unit}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-
+                      {/* Check / Increment Action */}
                       <TouchableOpacity
                         activeOpacity={0.7}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleToggleHabit(habit.id);
-                        }}
+                        onPress={() => handleToggleHabit(habit.id)}
                         style={[
-                          styles.checkBtn,
+                          styles.toggleBtn,
                           {
-                            backgroundColor: isDone ? colors.primary : 'transparent',
-                            borderColor: isDone ? colors.primary : colors.border,
+                            backgroundColor: isDoneToday ? colors.primary : colors.inputBg,
+                            borderColor: isDoneToday ? colors.primary : colors.border,
                           },
                         ]}
                         accessibilityRole="button"
+                        accessibilityLabel={`Toggle ${habit.name}`}
                       >
                         <Ionicons
-                          name={isDone ? 'checkmark' : 'add'}
+                          name={isDoneToday ? 'checkmark' : 'add'}
                           size={18}
-                          color={isDone ? '#FFFFFF' : colors.textSecondary}
+                          color={isDoneToday ? '#FFFFFF' : colors.textPrimary}
                         />
                       </TouchableOpacity>
+
+                      {/* Info Column */}
+                      <View style={styles.habitInfo}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                            {habit.name}
+                          </Text>
+                          <View style={[styles.miniBadge, { backgroundColor: colors.accentMint }]}>
+                            <Text style={[typography.captionBold, { color: colors.primary, fontSize: 10 }]}>
+                              {habit.frequency.toUpperCase()}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
+                          Target: {habit.target_count} {habit.unit} · {habit.duration_minutes || 15}m
+                          {habit.preferred_time ? ` · ${habit.preferred_time}` : ''}
+                        </Text>
+                      </View>
+
+                      {/* Streak Badge */}
+                      <View style={styles.streakCol}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Ionicons name="flame" size={15} color="#F59E0B" style={{ marginRight: 2 }} />
+                          <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                            {habit.streak || 0}
+                          </Text>
+                        </View>
+                        <Text style={[typography.caption, { color: colors.textMuted, fontSize: 10 }]}>
+                          Max {habit.longestStreak || 0}
+                        </Text>
+                      </View>
                     </View>
+
+                    {/* Progress Bar */}
+                    <ProgressBar
+                      progress={progress}
+                      color={isDoneToday ? colors.primary : colors.primaryLight}
+                      style={{ marginTop: 10 }}
+                    />
 
                     {/* Custom Fields Badges */}
                     <CustomFieldsBadgeRow entityType="habits" entityId={habit.id} />
@@ -454,130 +408,85 @@ export const HabitsScreen: React.FC = () => {
               );
             })
           )}
-          <View style={{ height: 40 }} />
         </ScrollView>
 
-        {/* Add Habit Sheet Modal */}
+        {/* Add Habit Sheet Modal using Standardized Dayvane Forms */}
         <BottomSheetModal
           visible={isAddOpen}
           onClose={() => setIsAddOpen(false)}
           title="Create New Habit"
         >
-          <View style={styles.modalForm}>
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Habit Name *
-            </Text>
-            <TextInput
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalForm}>
+            <FormInput
+              label="Habit Name"
+              required
               value={name}
               onChangeText={setName}
-              placeholder="e.g. Read 20 Pages"
-              placeholderTextColor={colors.textMuted}
-              style={[
-                styles.modalInput,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-              ]}
+              placeholder="e.g. Read 20 Pages, Cold Shower, Gym"
+              icon="flash-outline"
             />
 
-            <View style={styles.row}>
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-                  Target Count
-                </Text>
-                <TextInput
+            <FormTextArea
+              label="Motivation / Cue"
+              value={description}
+              onChangeText={setDescription}
+              placeholder="e.g. After pouring my morning coffee..."
+              numberOfLines={2}
+            />
+
+            <FormSelect
+              label="Frequency Schedule"
+              value={frequency}
+              options={FREQUENCY_OPTIONS}
+              onSelect={(val) => setFrequency(val as HabitFrequency)}
+            />
+
+            <FormWeekdaysPicker
+              selectedDays={scheduleDays}
+              onChange={setScheduleDays}
+            />
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <FormInput
+                  label="Target Repetitions"
                   value={targetCount}
                   onChangeText={setTargetCount}
                   keyboardType="numeric"
                   placeholder="1"
-                  placeholderTextColor={colors.textMuted}
-                  style={[
-                    styles.modalInput,
-                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-                  ]}
                 />
               </View>
-
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-                  Unit
-                </Text>
-                <TextInput
+              <View style={{ flex: 1 }}>
+                <FormInput
+                  label="Unit"
                   value={unit}
                   onChangeText={setUnit}
-                  placeholder="times, pages, mins"
-                  placeholderTextColor={colors.textMuted}
-                  style={[
-                    styles.modalInput,
-                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-                  ]}
+                  placeholder="times, mins, pages"
                 />
               </View>
             </View>
 
-            {/* Quick Unit Selector */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-              {availableUnits.map((u) => (
-                <TouchableOpacity
-                  key={u}
-                  onPress={() => setUnit(u)}
-                  style={[
-                    styles.unitChip,
-                    unit === u && { backgroundColor: colors.accentMint, borderColor: colors.primary },
-                    { borderColor: colors.border },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      typography.captionBold,
-                      { color: unit === u ? colors.primary : colors.textSecondary },
-                    ]}
-                  >
-                    {u}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Frequency
-            </Text>
-            <View style={styles.frequencyRow}>
-              <TouchableOpacity
-                onPress={() => setFrequency('daily')}
-                style={[
-                  styles.freqBtn,
-                  frequency === 'daily' && { backgroundColor: colors.accentMint, borderColor: colors.primary },
-                  { borderColor: colors.border },
-                ]}
-              >
-                <Text
-                  style={[
-                    typography.captionBold,
-                    { color: frequency === 'daily' ? colors.primary : colors.textSecondary },
-                  ]}
-                >
-                  Daily
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setFrequency('weekly')}
-                style={[
-                  styles.freqBtn,
-                  frequency === 'weekly' && { backgroundColor: colors.accentMint, borderColor: colors.primary },
-                  { borderColor: colors.border },
-                ]}
-              >
-                <Text
-                  style={[
-                    typography.captionBold,
-                    { color: frequency === 'weekly' ? colors.primary : colors.textSecondary },
-                  ]}
-                >
-                  Weekly
-                </Text>
-              </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <FormInput
+                  label="Preferred Time"
+                  value={preferredTime}
+                  onChangeText={setPreferredTime}
+                  placeholder="08:00"
+                  icon="time-outline"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <FormInput
+                  label="Duration (Mins)"
+                  value={durationMinutes}
+                  onChangeText={setDurationMinutes}
+                  keyboardType="numeric"
+                  placeholder="15"
+                />
+              </View>
             </View>
 
-            {/* Custom Fields Section */}
             <CustomFieldsSection
               entityType="habits"
               values={addCustomValues}
@@ -585,68 +494,221 @@ export const HabitsScreen: React.FC = () => {
             />
 
             <Button
-              title="Create Habit"
+              title="Save Habit"
               onPress={handleSaveAdd}
-              style={{ marginTop: 20 }}
+              style={{ marginTop: 8 }}
             />
-          </View>
+          </ScrollView>
         </BottomSheetModal>
 
-        {/* Habit Details Modal */}
+        {/* Edit Habit Modal */}
+        <BottomSheetModal
+          visible={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          title="Edit Habit"
+        >
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalForm}>
+            <FormInput
+              label="Habit Name"
+              required
+              value={name}
+              onChangeText={setName}
+              icon="flash-outline"
+            />
+
+            <FormTextArea
+              label="Motivation / Cue"
+              value={description}
+              onChangeText={setDescription}
+              numberOfLines={2}
+            />
+
+            <FormSelect
+              label="Frequency Schedule"
+              value={frequency}
+              options={FREQUENCY_OPTIONS}
+              onSelect={(val) => setFrequency(val as HabitFrequency)}
+            />
+
+            <FormWeekdaysPicker
+              selectedDays={scheduleDays}
+              onChange={setScheduleDays}
+            />
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <FormInput
+                  label="Target"
+                  value={targetCount}
+                  onChangeText={setTargetCount}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <FormInput
+                  label="Unit"
+                  value={unit}
+                  onChangeText={setUnit}
+                />
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <FormInput
+                  label="Preferred Time"
+                  value={preferredTime}
+                  onChangeText={setPreferredTime}
+                  icon="time-outline"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <FormInput
+                  label="Duration (Mins)"
+                  value={durationMinutes}
+                  onChangeText={setDurationMinutes}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <CustomFieldsSection
+              entityType="habits"
+              values={editCustomValues}
+              onChange={(k, v) => setEditCustomValues((prev) => ({ ...prev, [k]: v }))}
+            />
+
+            <View style={{ flexDirection: 'row', marginTop: 12, gap: 10 }}>
+              <Button
+                title="Archive"
+                variant="ghost"
+                onPress={() => editingHabit && handleArchiveHabit(editingHabit.id)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Save Changes"
+                variant="primary"
+                onPress={handleSaveEdit}
+                style={{ flex: 2 }}
+              />
+            </View>
+          </ScrollView>
+        </BottomSheetModal>
+
+        {/* Habit Detail & History View Modal */}
         {selectedHabitDetails && (
           <BottomSheetModal
             visible={!!selectedHabitDetails && !isEditOpen}
             onClose={() => setSelectedHabitDetails(null)}
-            title="Habit Details"
+            title="Habit History & Stats"
           >
-            <View style={styles.detailContent}>
-              <View style={styles.detailHeaderRow}>
-                <View style={[styles.detailIcon, { backgroundColor: colors.accentMint }]}>
-                  <Ionicons
-                    name={(selectedHabitDetails.icon as any) || 'flash-outline'}
-                    size={28}
-                    color={selectedHabitDetails.color || colors.primary}
-                  />
-                </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[typography.h2, { color: colors.textPrimary, fontWeight: '700' }]}>
-                    {selectedHabitDetails.name}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.detailScroll}>
+              <View style={styles.detailHeaderBox}>
+                <Text style={[typography.h2, { color: colors.textPrimary, fontWeight: '800' }]}>
+                  {selectedHabitDetails.name}
+                </Text>
+                {selectedHabitDetails.description && (
+                  <Text style={[typography.body, { color: colors.textSecondary, marginTop: 4 }]}>
+                    {selectedHabitDetails.description}
                   </Text>
-                  <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
-                    {selectedHabitDetails.frequency === 'daily' ? 'Daily Routine' : 'Weekly Goal'} · Target:{' '}
-                    {selectedHabitDetails.target_count} {selectedHabitDetails.unit}
-                  </Text>
-                </View>
+                )}
               </View>
 
-              {/* Stats Cards Row */}
-              <View style={styles.detailStatsRow}>
-                <Card style={[styles.detailStatBox, { backgroundColor: colors.orangeSoft }]}>
-                  <Text style={{ fontSize: 20 }}>🔥</Text>
-                  <Text style={[typography.h3, { color: '#92400E', fontWeight: '800', marginTop: 4 }]}>
-                    {selectedHabitDetails.streak || 0}
+              {/* Stats Tiles */}
+              <View style={styles.statsTilesRow}>
+                <View style={[styles.statTile, { backgroundColor: colors.inputBg, borderRadius: radius.md }]}>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>Current Streak</Text>
+                  <Text style={[typography.h2, { color: colors.primary, fontWeight: '800', marginTop: 2 }]}>
+                    {selectedHabitDetails.streak || 0}d
                   </Text>
-                  <Text style={[typography.caption, { color: '#B45309' }]}>Day Streak</Text>
-                </Card>
-
-                <Card style={[styles.detailStatBox, { backgroundColor: colors.accentMint }]}>
-                  <Ionicons name="trophy-outline" size={20} color={colors.primary} />
-                  <Text style={[typography.h3, { color: colors.deepGreen, fontWeight: '800', marginTop: 4 }]}>
+                </View>
+                <View style={[styles.statTile, { backgroundColor: colors.inputBg, borderRadius: radius.md }]}>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>Longest Streak</Text>
+                  <Text style={[typography.h2, { color: colors.textPrimary, fontWeight: '800', marginTop: 2 }]}>
+                    {selectedHabitDetails.longestStreak || 0}d
+                  </Text>
+                </View>
+                <View style={[styles.statTile, { backgroundColor: colors.inputBg, borderRadius: radius.md }]}>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>Total Days</Text>
+                  <Text style={[typography.h2, { color: colors.textPrimary, fontWeight: '800', marginTop: 2 }]}>
                     {selectedHabitDetails.totalCompletedDays || 0}
                   </Text>
-                  <Text style={[typography.caption, { color: colors.deepGreen }]}>Total Days</Text>
-                </Card>
-
-                <Card style={[styles.detailStatBox, { backgroundColor: colors.purpleSoft }]}>
-                  <Ionicons name="pie-chart-outline" size={20} color={colors.purple} />
-                  <Text style={[typography.h3, { color: colors.purple, fontWeight: '800', marginTop: 4 }]}>
-                    {selectedHabitDetails.progressPercent || 0}%
-                  </Text>
-                  <Text style={[typography.caption, { color: colors.purple }]}>Today</Text>
-                </Card>
+                </View>
               </View>
 
-              {/* Custom Fields on Detail View */}
+              {/* Historical Completion Log Editor */}
+              <View style={{ marginTop: 16 }}>
+                <Text style={[styles.sectionTitle, typography.captionBold, { color: colors.textSecondary }]}>
+                  RECENT COMPLETIONS & EDIT LOGS
+                </Text>
+
+                {editingHistoryDate ? (
+                  <View style={[styles.editHistoryBox, { backgroundColor: colors.inputBg, borderColor: colors.border, borderRadius: radius.md }]}>
+                    <Text style={[typography.captionBold, { color: colors.primary, marginBottom: 8 }]}>
+                      Edit Log for {editingHistoryDate}
+                    </Text>
+                    <FormInput
+                      label="Completed Count"
+                      value={historyCount}
+                      onChangeText={setHistoryCount}
+                      keyboardType="numeric"
+                    />
+                    <FormInput
+                      label="Completion Note / Context"
+                      value={historyNotes}
+                      onChangeText={setHistoryNotes}
+                      placeholder="e.g. Great focus session"
+                    />
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                      <Button
+                        title="Cancel"
+                        variant="ghost"
+                        onPress={() => setEditingHistoryDate(null)}
+                        style={{ flex: 1 }}
+                      />
+                      <Button
+                        title="Update Log"
+                        variant="primary"
+                        onPress={() => handleSaveHistoricalCompletion(selectedHabitDetails.id)}
+                        style={{ flex: 2 }}
+                      />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.historyList}>
+                    {(selectedHabitDetails.completionHistory || []).slice(0, 10).map((log: any) => (
+                      <TouchableOpacity
+                        key={log.date}
+                        onPress={() => {
+                          setEditingHistoryDate(log.date);
+                          setHistoryCount(String(log.count || 1));
+                          setHistoryNotes(log.notes || '');
+                        }}
+                        style={[styles.historyRow, { borderBottomColor: colors.border }]}
+                      >
+                        <View>
+                          <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                            {log.date}
+                          </Text>
+                          {log.notes && (
+                            <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                              {log.notes}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={[typography.captionBold, { color: colors.primary, marginRight: 6 }]}>
+                            {log.count} done
+                          </Text>
+                          <Ionicons name="pencil-outline" size={14} color={colors.textMuted} />
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Custom fields row */}
               <CustomFieldsBadgeRow entityType="habits" entityId={selectedHabitDetails.id} />
 
               {/* Detail Actions */}
@@ -664,74 +726,9 @@ export const HabitsScreen: React.FC = () => {
                   style={{ flex: 1, marginLeft: 8 }}
                 />
               </View>
-            </View>
+            </ScrollView>
           </BottomSheetModal>
         )}
-
-        {/* Edit Habit Modal */}
-        <BottomSheetModal
-          visible={isEditOpen}
-          onClose={() => setIsEditOpen(false)}
-          title="Edit Habit"
-        >
-          <View style={styles.modalForm}>
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Habit Name
-            </Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              style={[
-                styles.modalInput,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-              ]}
-            />
-
-            <View style={styles.row}>
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-                  Target Count
-                </Text>
-                <TextInput
-                  value={targetCount}
-                  onChangeText={setTargetCount}
-                  keyboardType="numeric"
-                  style={[
-                    styles.modalInput,
-                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-                  ]}
-                />
-              </View>
-
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-                  Unit
-                </Text>
-                <TextInput
-                  value={unit}
-                  onChangeText={setUnit}
-                  style={[
-                    styles.modalInput,
-                    { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-                  ]}
-                />
-              </View>
-            </View>
-
-            {/* Custom Fields Section */}
-            <CustomFieldsSection
-              entityType="habits"
-              values={editCustomValues}
-              onChange={(k, v) => setEditCustomValues((prev) => ({ ...prev, [k]: v }))}
-            />
-
-            <Button
-              title="Save Changes"
-              onPress={handleSaveEdit}
-              style={{ marginTop: 20 }}
-            />
-          </View>
-        </BottomSheetModal>
       </View>
     </Screen>
   );
@@ -747,7 +744,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -780,66 +777,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   streakBanner: {
+    padding: 12,
+    marginBottom: 12,
+  },
+  streakInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  streakInfo: {
-    flex: 1,
   },
   streakRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  miniChart: {
-    marginLeft: 12,
+  fireCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBar: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
   },
   list: {
     flex: 1,
   },
   scrollListPadding: {
     paddingBottom: 40,
-  },
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  compactCard: {
-    marginBottom: 8,
-    padding: 10,
-  },
-  compactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  miniCheckBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  listCard: {
-    marginBottom: 8,
-    padding: 12,
-  },
-  listRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  gridCard: {
-    width: '48%',
-    marginBottom: 12,
-    padding: 12,
   },
   habitCard: {
     marginBottom: 12,
@@ -849,103 +820,68 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  iconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  habitDetails: {
-    flex: 1,
-    marginHorizontal: 12,
-  },
-  titleLine: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  habitName: {
-    fontSize: 16,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkBtn: {
+  toggleBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
+  },
+  habitInfo: {
+    flex: 1,
+  },
+  miniBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  streakCol: {
+    alignItems: 'flex-end',
+    marginLeft: 8,
   },
   modalForm: {
-    paddingBottom: 24,
+    paddingBottom: 30,
   },
-  formLabel: {
-    marginBottom: 6,
-    letterSpacing: 0.5,
+  detailScroll: {
+    paddingBottom: 30,
   },
-  modalInput: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    marginBottom: 12,
+  detailHeaderBox: {
+    marginBottom: 14,
   },
-  row: {
-    flexDirection: 'row',
-  },
-  unitChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginRight: 6,
-  },
-  frequencyRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-  freqBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  detailContent: {
-    paddingBottom: 24,
-  },
-  detailHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  detailIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailStatsRow: {
+  statsTilesRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  detailStatBox: {
+  statTile: {
     flex: 1,
-    padding: 12,
+    padding: 10,
     alignItems: 'center',
-    borderRadius: 12,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  editHistoryBox: {
+    padding: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  historyList: {
+    marginBottom: 12,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
   },
   detailActionsRow: {
     flexDirection: 'row',
-    marginTop: 20,
+    marginTop: 16,
   },
 });
