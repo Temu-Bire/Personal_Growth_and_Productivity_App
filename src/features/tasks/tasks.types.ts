@@ -12,6 +12,8 @@ export interface Task {
   priority: TaskPriority;
   goal_id?: string | null;
   goal_title?: string | null;
+  project_id?: string | null;
+  project_name?: string | null;
   estimated_minutes: number;
   actual_minutes?: number | null;
   reminder_time: string | null;
@@ -33,6 +35,7 @@ export interface CreateTaskDTO {
   category?: string;
   priority?: TaskPriority;
   goal_id?: string | null;
+  project_id?: string | null;
   estimated_minutes?: number;
   actual_minutes?: number | null;
   reminder_time?: string | null;

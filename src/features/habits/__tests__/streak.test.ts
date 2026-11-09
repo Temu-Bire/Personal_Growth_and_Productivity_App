@@ -50,3 +50,4 @@ describe('Habit Streak Calculator', () => {
     expect(longestStreak).toBe(5);
   });
 });
+

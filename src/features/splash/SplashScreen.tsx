@@ -1,9 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
-import { RootStackParamList } from '../../app/navigation/types';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -18,7 +16,6 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
   const { typography } = useTheme();
 
   useEffect(() => {
-    // If already onboarded, automatically navigate after a short pause
     if (hasOnboarded) {
       const timer = setTimeout(() => {
         if (appLockEnabled && isLocked) {
@@ -45,31 +42,27 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Mountain Landscape Graphic at top */}
+      {/* Background Graphic at top */}
       <View style={styles.mountainContainer}>
         <Svg width={width} height={180} viewBox="0 0 375 180">
-          {/* Background mountain */}
           <Path
             d="M -20 180 L 120 40 L 220 180 Z"
-            fill="#124027"
-            opacity={0.6}
+            fill="#18181B"
+            opacity={0.7}
           />
-          {/* Middle mountain */}
           <Path
             d="M 130 180 L 250 20 L 390 180 Z"
-            fill="#165131"
-            opacity={0.8}
+            fill="#121215"
+            opacity={0.9}
           />
-          {/* Sun / Moon circle */}
           <Path
             d="M 187 65 m -12 0 a 12 12 0 1 0 24 0 a 12 12 0 1 0 -24 0"
-            fill="#A7F3D0"
-            opacity={0.3}
+            fill="#FFFFFF"
+            opacity={0.06}
           />
-          {/* Foreground mountain ridge */}
           <Path
             d="M 0 180 Q 90 120 190 150 T 375 130 L 375 180 Z"
-            fill="#0F4D2E"
+            fill="#18181B"
           />
         </Svg>
       </View>
@@ -77,14 +70,14 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
       {/* Center Branding */}
       <View style={styles.centerContent}>
         <View style={styles.logoBadge}>
-          <Ionicons name="leaf" size={44} color="#A7F3D0" />
+          <Ionicons name="sparkles" size={40} color="#FFFFFF" />
         </View>
 
-        <Text style={[styles.brandTitle, typography.hero]}>GrowPro</Text>
-        <Text style={[styles.tagline, typography.h3]}>Plan · Focus · Achieve</Text>
+        <Text style={[styles.brandTitle, typography.hero]}>Dayvane</Text>
+        <Text style={[styles.tagline, typography.h3]}>Intentional Daily Living</Text>
 
         <Text style={[styles.subTagline, typography.body]}>
-          Invest in yourself, build a better future
+          Your private offline companion for habits, tasks, and goals
         </Text>
       </View>
 
@@ -111,7 +104,7 @@ export const SplashScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A321D',
+    backgroundColor: '#09090B',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingTop: 40,
@@ -130,52 +123,52 @@ const styles = StyleSheet.create({
     marginTop: 60,
   },
   logoBadge: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: '#165131',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#18181B',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(167, 243, 208, 0.3)',
+    borderColor: '#27272A',
   },
   brandTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontWeight: '800',
     fontSize: 34,
     letterSpacing: -0.5,
   },
   tagline: {
-    color: '#A7F3D0',
+    color: '#A1A1AA',
     marginTop: 6,
     fontWeight: '500',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   subTagline: {
-    color: '#9CA3AF',
+    color: '#71717A',
     marginTop: 14,
     textAlign: 'center',
-    maxWidth: 240,
+    maxWidth: 280,
   },
   footer: {
     alignItems: 'center',
   },
   startButton: {
-    backgroundColor: '#1E8E4E',
+    backgroundColor: '#FAFAFA',
     width: '100%',
-    paddingVertical: 15,
-    borderRadius: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   btnText: {
-    color: '#FFFFFF',
+    color: '#09090B',
     fontWeight: '700',
     fontSize: 16,
   },
   versionText: {
-    color: 'rgba(255, 255, 255, 0.4)',
+    color: '#71717A',
     marginTop: 16,
   },
 });

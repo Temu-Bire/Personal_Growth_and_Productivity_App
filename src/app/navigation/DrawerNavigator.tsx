@@ -7,6 +7,7 @@ import { TasksScreen } from '../../features/tasks/screens/TasksScreen';
 import { HabitsScreen } from '../../features/habits/screens/HabitsScreen';
 import { ProjectsScreen } from '../../features/projects/screens/ProjectsScreen';
 import { JournalScreen } from '../../features/journal/screens/JournalScreen';
+import { CalendarScreen } from '../../features/calendar/screens/CalendarScreen';
 import { AnalyticsScreen } from '../../features/analytics/screens/AnalyticsScreen';
 import { ReportsScreen } from '../../features/reports/screens/ReportsScreen';
 import { CoachScreen } from '../../features/coach/screens/CoachScreen';
@@ -34,6 +35,7 @@ export const DrawerNavigator: React.FC = () => {
       <Drawer.Screen name="GoalsScreen" component={GoalsScreen} />
       <Drawer.Screen name="ProjectsScreen" component={ProjectsScreen} />
       <Drawer.Screen name="JournalScreen" component={JournalScreen} />
+      <Drawer.Screen name="CalendarScreen" component={CalendarScreen} />
       <Drawer.Screen name="AnalyticsScreen" component={AnalyticsScreen} />
       <Drawer.Screen name="ReportsScreen" component={ReportsScreen} />
       <Drawer.Screen name="CoachScreen" component={CoachScreen} />

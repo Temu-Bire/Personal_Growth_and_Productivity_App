@@ -1,4 +1,4 @@
-import { getDatabase, getDatabaseAsync } from '../../db/client';
+import { getDatabase } from '../../db/client';
 import { Task, CreateTaskDTO, TaskPriority, TaskStatus } from './tasks.types';
 import { generateId } from '../../utils/id';
 
@@ -11,13 +11,15 @@ export class TasksRepository {
     status?: TaskStatus;
     priority?: TaskPriority;
     goalId?: string;
+    projectId?: string;
     search?: string;
   }): Task[] {
     const db = getDatabase();
     let query = `
-      SELECT t.*, g.title as goal_title 
+      SELECT t.*, g.title as goal_title, p.name as project_name
       FROM tasks t 
       LEFT JOIN goals g ON t.goal_id = g.id 
+      LEFT JOIN projects p ON t.project_id = p.id
       WHERE t.deleted_at IS NULL
     `;
     const params: any[] = [];
@@ -51,6 +53,11 @@ export class TasksRepository {
       params.push(options.goalId);
     }
 
+    if (options?.projectId) {
+      query += ' AND t.project_id = ?';
+      params.push(options.projectId);
+    }
+
     if (options?.search && options.search.trim()) {
       query += ' AND (t.title LIKE ? OR t.notes LIKE ?)';
       params.push(`%${options.search.trim()}%`, `%${options.search.trim()}%`);
@@ -76,9 +83,10 @@ export class TasksRepository {
   static getTodayPriorities(date: string): Task[] {
     const db = getDatabase();
     return db.getAllSync<Task>(
-      `SELECT t.*, g.title as goal_title 
+      `SELECT t.*, g.title as goal_title, p.name as project_name 
        FROM tasks t 
        LEFT JOIN goals g ON t.goal_id = g.id 
+       LEFT JOIN projects p ON t.project_id = p.id
        WHERE t.date = ? AND t.is_priority = 1 AND t.deleted_at IS NULL 
        ORDER BY t.is_completed ASC, t.created_at ASC LIMIT 3;`,
       [date]
@@ -104,9 +112,9 @@ export class TasksRepository {
 
     db.runSync(
       `INSERT INTO tasks (
-        id, title, notes, date, start_time, end_time, category, priority, goal_id,
+        id, title, notes, date, start_time, end_time, category, priority, goal_id, project_id,
         estimated_minutes, actual_minutes, reminder_time, repeat, is_completed, is_priority, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?);`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?);`,
       [
         id,
         dto.title.trim(),
@@ -117,6 +125,7 @@ export class TasksRepository {
         dto.category || 'General',
         dto.priority || 'medium',
         dto.goal_id || null,
+        dto.project_id || null,
         dto.estimated_minutes || 30,
         dto.actual_minutes || null,
         dto.reminder_time || null,
@@ -144,6 +153,7 @@ export class TasksRepository {
     const category = dto.category !== undefined ? dto.category : existing.category;
     const priority = dto.priority !== undefined ? dto.priority : existing.priority;
     const goalId = dto.goal_id !== undefined ? dto.goal_id : existing.goal_id;
+    const projectId = dto.project_id !== undefined ? dto.project_id : existing.project_id;
     const estimatedMinutes = dto.estimated_minutes !== undefined ? dto.estimated_minutes : existing.estimated_minutes;
     const actualMinutes = dto.actual_minutes !== undefined ? dto.actual_minutes : existing.actual_minutes;
     const reminderTime = dto.reminder_time !== undefined ? dto.reminder_time : existing.reminder_time;
@@ -153,7 +163,7 @@ export class TasksRepository {
     db.runSync(
       `UPDATE tasks SET 
         title = ?, notes = ?, date = ?, start_time = ?, end_time = ?, category = ?, priority = ?,
-        goal_id = ?, estimated_minutes = ?, actual_minutes = ?, reminder_time = ?, repeat = ?, is_priority = ?, updated_at = ?
+        goal_id = ?, project_id = ?, estimated_minutes = ?, actual_minutes = ?, reminder_time = ?, repeat = ?, is_priority = ?, updated_at = ?
        WHERE id = ?;`,
       [
         title,
@@ -164,6 +174,7 @@ export class TasksRepository {
         category,
         priority,
         goalId ?? null,
+        projectId ?? null,
         estimatedMinutes,
         actualMinutes ?? null,
         reminderTime ?? null,
@@ -211,9 +222,10 @@ export class TasksRepository {
   static getCurrentTask(date: string): Task | null {
     const db = getDatabase();
     const task = db.getFirstSync<Task>(
-      `SELECT t.*, g.title as goal_title 
+      `SELECT t.*, g.title as goal_title, p.name as project_name 
        FROM tasks t 
        LEFT JOIN goals g ON t.goal_id = g.id 
+       LEFT JOIN projects p ON t.project_id = p.id
        WHERE t.date = ? AND t.is_completed = 0 AND t.deleted_at IS NULL
        ORDER BY t.is_priority DESC, t.start_time ASC, t.created_at ASC
        LIMIT 1;`,
@@ -225,9 +237,10 @@ export class TasksRepository {
   static getOverdueTasks(date: string): Task[] {
     const db = getDatabase();
     return db.getAllSync<Task>(
-      `SELECT t.*, g.title as goal_title 
+      `SELECT t.*, g.title as goal_title, p.name as project_name 
        FROM tasks t 
        LEFT JOIN goals g ON t.goal_id = g.id 
+       LEFT JOIN projects p ON t.project_id = p.id
        WHERE t.date < ? AND t.is_completed = 0 AND t.deleted_at IS NULL
        ORDER BY t.date DESC, t.is_priority DESC
        LIMIT 5;`,
@@ -238,9 +251,10 @@ export class TasksRepository {
   static getTimelineTasks(date: string): Task[] {
     const db = getDatabase();
     return db.getAllSync<Task>(
-      `SELECT t.*, g.title as goal_title 
+      `SELECT t.*, g.title as goal_title, p.name as project_name 
        FROM tasks t 
        LEFT JOIN goals g ON t.goal_id = g.id 
+       LEFT JOIN projects p ON t.project_id = p.id
        WHERE t.date = ? AND t.deleted_at IS NULL 
        ORDER BY CASE WHEN t.start_time IS NULL THEN 1 ELSE 0 END, t.start_time ASC, t.created_at ASC;`,
       [date]

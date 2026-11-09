@@ -30,10 +30,9 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
     navigation.replace('MainApp');
   }, [navigation, setIsLocked]);
 
-  // Try biometric authentication on mount if enabled
   useEffect(() => {
     if (useBiometrics) {
-      AppLockService.authenticateBiometrics('Unlock GrowPro').then((success) => {
+      AppLockService.authenticateBiometrics('Unlock Dayvane').then((success) => {
         if (success) {
           handleUnlockSuccess();
         }
@@ -72,7 +71,7 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleBiometricsClick = async () => {
-    const success = await AppLockService.authenticateBiometrics('Unlock GrowPro');
+    const success = await AppLockService.authenticateBiometrics('Unlock Dayvane');
     if (success) {
       handleUnlockSuccess();
     } else {
@@ -102,7 +101,7 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.lockIconCircle}>
-          <Ionicons name="lock-closed" size={32} color="#A7F3D0" />
+          <Ionicons name="lock-closed" size={30} color="#FAFAFA" />
         </View>
 
         <Text style={[styles.welcomeTitle, typography.h1]}>
@@ -126,9 +125,9 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
                   backgroundColor: hasError
                     ? '#EF4444'
                     : filled
-                    ? '#10B981'
+                    ? '#FAFAFA'
                     : 'transparent',
-                  borderColor: hasError ? '#EF4444' : '#34A863',
+                  borderColor: hasError ? '#EF4444' : filled ? '#FAFAFA' : '#3F3F46',
                 },
               ]}
             />
@@ -148,7 +147,7 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={handleBackspace}
                 style={styles.keyBtn}
               >
-                <Ionicons name="backspace-outline" size={26} color="#FFFFFF" />
+                <Ionicons name="backspace-outline" size={24} color="#FAFAFA" />
               </TouchableOpacity>
             );
           }
@@ -173,8 +172,8 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
             onPress={handleBiometricsClick}
             style={styles.bioBtn}
           >
-            <Ionicons name="finger-print" size={22} color="#A7F3D0" style={{ marginRight: 8 }} />
-            <Text style={[typography.bodyMedium, { color: '#A7F3D0' }]}>
+            <Ionicons name="finger-print" size={20} color="#FAFAFA" style={{ marginRight: 8 }} />
+            <Text style={[typography.bodyMedium, { color: '#FAFAFA' }]}>
               Use fingerprint / Face ID
             </Text>
           </TouchableOpacity>
@@ -187,7 +186,7 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
           accessibilityRole="button"
           accessibilityLabel="Forgot PIN"
         >
-          <Text style={[typography.caption, { color: '#A7F3D0', opacity: 0.85 }]}>
+          <Text style={[typography.caption, { color: '#71717A' }]}>
             Forgot PIN? Tap to reset
           </Text>
         </TouchableOpacity>
@@ -199,7 +198,7 @@ export const LockScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F4D2E',
+    backgroundColor: '#09090B',
     justifyContent: 'space-between',
     paddingHorizontal: 28,
     paddingVertical: 20,
@@ -209,23 +208,23 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   lockIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#165131',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#18181B',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(167, 243, 208, 0.3)',
+    borderColor: '#27272A',
   },
   welcomeTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontWeight: '700',
     textAlign: 'center',
   },
   enterPinSub: {
-    color: '#A7F3D0',
+    color: '#A1A1AA',
     marginTop: 8,
   },
   dotsContainer: {
@@ -235,9 +234,9 @@ const styles = StyleSheet.create({
     marginVertical: 24,
   },
   dot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     borderWidth: 2,
   },
   keypad: {
@@ -248,22 +247,22 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   keyBtn: {
-    width: 78,
+    width: 76,
     height: 64,
     alignItems: 'center',
     justifyContent: 'center',
     margin: 6,
     borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   keyEmpty: {
-    width: 78,
+    width: 76,
     height: 64,
     margin: 6,
   },
   numText: {
-    color: '#FFFFFF',
-    fontSize: 26,
+    color: '#FAFAFA',
+    fontSize: 24,
     fontWeight: '600',
   },
   footer: {
@@ -277,4 +276,3 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
 });
-

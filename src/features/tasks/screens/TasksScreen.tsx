@@ -128,10 +128,11 @@ export const TasksScreen: React.FC = () => {
     TasksRepository.create({
       title: title.trim(),
       notes: description.trim() || null,
-      date: dueDate,
+      date: dueDate.trim() || todayStr,
       category: category === 'None' ? 'General' : category,
       priority,
       goal_id: goalId === 'none' ? null : goalId,
+      project_id: projectId === 'none' ? null : projectId,
       estimated_minutes: parseInt(durationMinutes, 10) || 30,
       is_priority: priority === 'high' ? 1 : 0,
     });
@@ -152,6 +153,7 @@ export const TasksScreen: React.FC = () => {
     setDescription(task.notes || '');
     setCategory(task.category || 'None');
     setGoalId(task.goal_id || 'none');
+    setProjectId(task.project_id || 'none');
     setPriority(task.priority);
     setDueDate(task.date);
     setDurationMinutes(String(task.estimated_minutes || 30));
@@ -164,10 +166,11 @@ export const TasksScreen: React.FC = () => {
     TasksRepository.update(selectedTask.id, {
       title: title.trim(),
       notes: description.trim() || null,
-      date: dueDate,
+      date: dueDate.trim() || todayStr,
       category: category === 'None' ? 'General' : category,
       priority,
       goal_id: goalId === 'none' ? null : goalId,
+      project_id: projectId === 'none' ? null : projectId,
       estimated_minutes: parseInt(durationMinutes, 10) || 30,
       is_priority: priority === 'high' ? 1 : 0,
     });
@@ -256,11 +259,18 @@ export const TasksScreen: React.FC = () => {
             tasks.map((task) => {
               const isDone = task.is_completed === 1;
               const isToday = task.date === todayStr;
-              const subtext = isDone
-                ? `${task.category} - Done`
-                : isToday
-                ? `${task.category} - Due today`
-                : `${task.category} - ${task.date}`;
+
+              // Matching Dayvane design: "Career - Due today" or "Project: Restaurant - Nov 12"
+              let subtext = '';
+              if (task.project_name) {
+                subtext = `Project: ${task.project_name} - ${task.date}`;
+              } else if (isDone) {
+                subtext = `${task.category} - Done`;
+              } else if (isToday) {
+                subtext = `${task.category} - Due today`;
+              } else {
+                subtext = `${task.category} - ${task.date}`;
+              }
 
               return (
                 <Card
@@ -352,7 +362,9 @@ export const TasksScreen: React.FC = () => {
               label="Title"
               required
               value={title}
-              onChangeText={(text) => text.length <= 75 && setTitle(text)}
+              onChangeText={(text) => {
+                if (text.length <= 75) setTitle(text);
+              }}
               placeholder="e.g. Finish resume"
               characterCount={{ current: title.length, max: 75 }}
             />
@@ -360,7 +372,9 @@ export const TasksScreen: React.FC = () => {
             <FormTextArea
               label="Description"
               value={description}
-              onChangeText={(text) => text.length <= 200 && setDescription(text)}
+              onChangeText={(text) => {
+                if (text.length <= 200) setDescription(text);
+              }}
               placeholder="Optional notes about this task"
               characterCount={{ current: description.length, max: 200 }}
               numberOfLines={3}
@@ -398,7 +412,7 @@ export const TasksScreen: React.FC = () => {
               label="Due date"
               value={dueDate}
               onChangeText={setDueDate}
-              placeholder="YYYY-MM-DD"
+              placeholder="mm/dd/yyyy"
               icon="calendar-outline"
             />
 
@@ -438,16 +452,20 @@ export const TasksScreen: React.FC = () => {
               label="Title"
               required
               value={title}
-              onChangeText={(text) => text.length <= 75 && setTitle(text)}
-              placeholder="Task title"
+              onChangeText={(text) => {
+                if (text.length <= 75) setTitle(text);
+              }}
+              placeholder="e.g. Finish resume"
               characterCount={{ current: title.length, max: 75 }}
             />
 
             <FormTextArea
               label="Description"
               value={description}
-              onChangeText={(text) => text.length <= 200 && setDescription(text)}
-              placeholder="Notes..."
+              onChangeText={(text) => {
+                if (text.length <= 200) setDescription(text);
+              }}
+              placeholder="Optional notes about this task"
               characterCount={{ current: description.length, max: 200 }}
               numberOfLines={3}
             />
@@ -467,6 +485,13 @@ export const TasksScreen: React.FC = () => {
             />
 
             <FormSelect
+              label="Project"
+              value={projectId}
+              options={projectOptions}
+              onSelect={setProjectId}
+            />
+
+            <FormSelect
               label="Priority"
               value={priority}
               options={PRIORITY_OPTIONS}
@@ -477,7 +502,15 @@ export const TasksScreen: React.FC = () => {
               label="Due date"
               value={dueDate}
               onChangeText={setDueDate}
-              placeholder="YYYY-MM-DD"
+              placeholder="mm/dd/yyyy"
+            />
+
+            <FormInput
+              label="Duration (minutes)"
+              value={durationMinutes}
+              onChangeText={setDurationMinutes}
+              placeholder="e.g. 30"
+              keyboardType="numeric"
             />
 
             <Button

@@ -14,8 +14,8 @@ export interface FormPriorityPickerProps {
 
 const PRIORITIES: { key: Priority; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
   { key: 'high', label: 'High', icon: 'flame', color: '#EF4444' },
-  { key: 'medium', label: 'Medium', icon: 'remove-outline', color: '#F59E0B' },
-  { key: 'low', label: 'Low', icon: 'arrow-down', color: '#10B981' },
+  { key: 'medium', label: 'Medium', icon: 'remove-outline', color: '#EAB308' },
+  { key: 'low', label: 'Low', icon: 'arrow-down', color: '#3B82F6' },
 ];
 
 export const FormPriorityPicker: React.FC<FormPriorityPickerProps> = ({
@@ -97,3 +97,4 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
 });
+

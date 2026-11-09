@@ -36,13 +36,5 @@ export type RootStackParamList = {
   ReportsScreen: undefined;
   CoachScreen: undefined;
   SettingsScreen: undefined;
-  AppearanceSettingsScreen: undefined;
-  NavigationSettingsScreen: undefined;
-  CategoriesSettingsScreen: undefined;
-  DashboardSettingsScreen: undefined;
-  FormBuilderSettingsScreen: undefined;
-  LayoutSettingsScreen: undefined;
-  GeneralPreferencesScreen: undefined;
   AppLockSettingsScreen: undefined;
-  DataBackupScreen: undefined;
 };

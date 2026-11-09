@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import { getDatabaseAsync } from '../../db/client';
 import { seedInitialDataAsync } from '../../db/seed';
-import { useCustomizationStore } from '../../store/useCustomizationStore';
 
 export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isReady, setIsReady] = useState(false);
@@ -13,10 +12,9 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setInitError(null);
       const db = await getDatabaseAsync();
       await seedInitialDataAsync(db);
-      useCustomizationStore.getState().loadCustomization();
       setIsReady(true);
     } catch (e: unknown) {
-      console.error('Failed to initialize GrowPro offline database:', e);
+      console.error('Failed to initialize Dayvane offline database:', e);
       setInitError(e instanceof Error ? e.message : 'Database initialization error');
     }
   }, []);
@@ -41,7 +39,7 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   if (!isReady) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#1E8E4E" />
+        <ActivityIndicator size="large" color="#FFFFFF" />
       </View>
     );
   }
@@ -52,13 +50,13 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 const styles = StyleSheet.create({
   center: {
     flex: 1,
-    backgroundColor: '#0F4D2E',
+    backgroundColor: '#09090B',
     alignItems: 'center',
     justifyContent: 'center',
   },
   errorCenter: {
     flex: 1,
-    backgroundColor: '#0F4D2E',
+    backgroundColor: '#09090B',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -68,27 +66,29 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorTitle: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 8,
     textAlign: 'center',
   },
   errorDetails: {
-    color: '#A7F3D0',
+    color: '#A1A1AA',
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 24,
     maxWidth: 300,
   },
   retryBtn: {
-    backgroundColor: '#1E8E4E',
+    backgroundColor: '#27272A',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3F3F46',
   },
   retryBtnText: {
-    color: '#FFFFFF',
+    color: '#FAFAFA',
     fontWeight: '600',
     fontSize: 15,
   },

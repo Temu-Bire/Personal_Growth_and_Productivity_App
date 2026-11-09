@@ -16,7 +16,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   if (!isInitialized) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#1E8E4E" />
+        <ActivityIndicator size="large" color="#FFFFFF" />
       </View>
     );
   }
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   },
   center: {
     flex: 1,
-    backgroundColor: '#0F4D2E',
+    backgroundColor: '#09090B',
     alignItems: 'center',
     justifyContent: 'center',
   },

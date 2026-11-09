@@ -12,8 +12,29 @@ import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { useCustomizationStore } from '../../store/useCustomizationStore';
 import { useTheme } from '../../hooks/useTheme';
+import { DrawerParamList } from '../../app/navigation/types';
+
+interface DrawerItemConfig {
+  id: string;
+  routeName: keyof DrawerParamList;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}
+
+const DAYVANE_DRAWER_ITEMS: DrawerItemConfig[] = [
+  { id: 'dashboard', routeName: 'DashboardScreen', label: 'Dashboard', icon: 'grid-outline' },
+  { id: 'habits', routeName: 'HabitsScreen', label: 'Habits', icon: 'repeat-outline' },
+  { id: 'tasks', routeName: 'TasksScreen', label: 'Tasks', icon: 'checkbox-outline' },
+  { id: 'goals', routeName: 'GoalsScreen', label: 'Goals', icon: 'flag-outline' },
+  { id: 'projects', routeName: 'ProjectsScreen', label: 'Projects', icon: 'folder-outline' },
+  { id: 'journal', routeName: 'JournalScreen', label: 'Journal', icon: 'book-outline' },
+  { id: 'calendar', routeName: 'CalendarScreen', label: 'Calendar', icon: 'calendar-outline' },
+  { id: 'analytics', routeName: 'AnalyticsScreen', label: 'Analytics', icon: 'bar-chart-outline' },
+  { id: 'reports', routeName: 'ReportsScreen', label: 'Reports', icon: 'document-text-outline' },
+  { id: 'coach', routeName: 'CoachScreen', label: 'AI Coach', icon: 'sparkles-outline' },
+  { id: 'settings', routeName: 'SettingsScreen', label: 'Settings', icon: 'settings-outline' },
+];
 
 export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigation, state }) => {
   const profileName = useSettingsStore((s) => s.profileName);
@@ -24,14 +45,11 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
   const appLockPin = useSettingsStore((s) => s.appLockPin);
   const setAppLock = useSettingsStore((s) => s.setAppLock);
 
-  const sidebarItems = useCustomizationStore((s) => s.sidebarItems);
   const { colors, typography, radius } = useTheme();
 
-  const visibleItems = sidebarItems.filter((item) => !item.isHidden);
   const activeRouteName = state.routes[state.index]?.name;
 
-  // Single unified color for all sidebar items
-  const INACTIVE_ITEM_COLOR = '#E2E8F0';
+  const INACTIVE_ITEM_COLOR = '#A1A1AA';
   const ACTIVE_ITEM_COLOR = '#FFFFFF';
 
   const handleLockNow = () => {
@@ -73,8 +91,8 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
 
   return (
     <View style={[styles.container, { backgroundColor: colors.drawerBg }]}>
-      {/* Top Header Section above divider with profile color */}
-      <View style={[styles.topProfileHeader, { backgroundColor: '#082E19' }]}>
+      {/* Top Header Section above divider with profile info */}
+      <View style={styles.topProfileHeader}>
         <SafeAreaView edges={['top']} style={styles.topSafeArea}>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -88,9 +106,9 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
                 {profileAvatar ? (
                   <Image source={{ uri: profileAvatar }} style={styles.avatarImage} />
                 ) : (
-                  <View style={[styles.avatarPlaceholder, { backgroundColor: '#1E8E4E' }]}>
+                  <View style={[styles.avatarPlaceholder, { backgroundColor: '#3B82F6' }]}>
                     <Text style={styles.avatarInitials}>
-                      {profileName ? profileName.charAt(0).toUpperCase() : 'G'}
+                      {profileName ? profileName.charAt(0).toUpperCase() : 'T'}
                     </Text>
                   </View>
                 )}
@@ -98,14 +116,14 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
 
               <View style={styles.profileInfoCol}>
                 <View style={styles.nameWithEditRow}>
-                  <Text style={[styles.profileName, typography.h2, { color: '#FFFFFF' }]} numberOfLines={1}>
+                  <Text style={[styles.profileName, typography.h2, { color: '#FAFAFA' }]} numberOfLines={1}>
                     {profileName || 'Temesgen'}
                   </Text>
                   <View style={styles.pencilCircle}>
-                    <Ionicons name="pencil-outline" size={13} color="#A7F3D0" />
+                    <Ionicons name="pencil-outline" size={13} color="#A1A1AA" />
                   </View>
                 </View>
-                <Text style={[styles.profileBadge, typography.caption, { color: '#A7F3D0' }]}>
+                <Text style={[styles.profileBadge, typography.caption, { color: '#A1A1AA' }]}>
                   {profileFocus ? `${profileFocus} · Offline` : 'Local profile · Offline'}
                 </Text>
               </View>
@@ -117,9 +135,8 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
 
       {/* Main Drawer Body */}
       <View style={styles.body}>
-        {/* Nav List - All items share one unified color */}
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          {visibleItems.map((item) => {
+          {DAYVANE_DRAWER_ITEMS.map((item) => {
             const isActive = activeRouteName === item.routeName;
             const itemColor = isActive ? ACTIVE_ITEM_COLOR : INACTIVE_ITEM_COLOR;
 
@@ -132,7 +149,7 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
                   styles.navItem,
                   {
                     borderRadius: radius.md,
-                    backgroundColor: isActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
+                    backgroundColor: isActive ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
                   },
                 ]}
                 accessibilityRole="button"
@@ -140,7 +157,7 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
               >
                 <Ionicons
                   name={item.icon}
-                  size={22}
+                  size={20}
                   color={itemColor}
                   style={styles.navIcon}
                 />
@@ -161,7 +178,7 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
           })}
         </ScrollView>
 
-        {/* Footer Lock Action with distinct suitable button styling */}
+        {/* Footer Lock Action */}
         <SafeAreaView edges={['bottom']} style={styles.footer}>
           <TouchableOpacity
             activeOpacity={0.85}
@@ -171,7 +188,7 @@ export const DrawerContent: React.FC<DrawerContentComponentProps> = ({ navigatio
             accessibilityLabel="Lock App Now"
           >
             <View style={styles.lockIconBadge}>
-              <Ionicons name="lock-closed" size={16} color="#F59E0B" />
+              <Ionicons name="lock-closed" size={15} color="#F59E0B" />
             </View>
             <Text style={[typography.bodyMedium, styles.lockBtnText]}>
               Lock App Now
@@ -188,8 +205,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topProfileHeader: {
+    backgroundColor: '#121215',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(167, 243, 208, 0.15)',
+    borderBottomColor: '#27272A',
   },
   topSafeArea: {
     paddingHorizontal: 16,
@@ -207,23 +225,23 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   avatarImage: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 2,
-    borderColor: '#34A863',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#27272A',
   },
   avatarPlaceholder: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#34A863',
+    borderWidth: 1,
+    borderColor: '#27272A',
   },
   avatarInitials: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -240,27 +258,27 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: 'rgba(167, 243, 208, 0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   profileName: {
     fontWeight: '700',
-    fontSize: 18,
+    fontSize: 17,
     flexShrink: 1,
   },
   profileBadge: {
-    marginTop: 4,
+    marginTop: 3,
     fontSize: 12,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(167, 243, 208, 0.15)',
+    backgroundColor: '#27272A',
   },
   body: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 6,
+    paddingTop: 10,
   },
   scroll: {
     flex: 1,
@@ -268,44 +286,44 @@ const styles = StyleSheet.create({
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
     marginVertical: 2,
   },
   navIcon: {
-    marginRight: 14,
+    marginRight: 12,
   },
   navLabel: {
-    fontSize: 15,
+    fontSize: 14,
   },
   footer: {
     paddingTop: 12,
     paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: '#27272A',
   },
   lockBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#062816',
-    borderWidth: 1.5,
-    borderColor: 'rgba(167, 243, 208, 0.35)',
-    paddingVertical: 13,
+    backgroundColor: '#18181B',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingVertical: 12,
     paddingHorizontal: 16,
   },
   lockIconBadge: {
-    marginRight: 10,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(245, 158, 11, 0.16)',
+    marginRight: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   lockBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    color: '#FAFAFA',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

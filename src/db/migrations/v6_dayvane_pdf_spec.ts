@@ -95,3 +95,4 @@ export const migrationV6: Migration = {
     }
   },
 };
+

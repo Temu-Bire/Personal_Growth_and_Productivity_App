@@ -60,3 +60,4 @@ export class SettingsRepository {
     db.runSync('DELETE FROM daily_summaries;');
   }
 }
+

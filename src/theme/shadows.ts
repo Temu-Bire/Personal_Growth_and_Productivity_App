@@ -17,7 +17,7 @@ export const shadows = {
     elevation: 3,
   } as ViewStyle,
   floating: {
-    shadowColor: '#1E8E4E',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 14,
