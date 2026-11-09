@@ -3,24 +3,25 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 export type TabParamList = {
   Home: undefined;
   Habits: undefined;
-  Stats: undefined;
+  Tasks: { openAdd?: boolean } | undefined;
+  Calendar: undefined;
   More: undefined;
 };
 
 export type DrawerParamList = {
   Tabs: NavigatorScreenParams<TabParamList>;
   DashboardScreen: undefined;
-  GoalsScreen: undefined;
-  TasksScreen: { openAdd?: boolean } | undefined;
-  IdeasScreen: undefined;
   HabitsScreen: undefined;
-  StudyScreen: undefined;
+  TasksScreen: { openAdd?: boolean } | undefined;
+  CalendarScreen: undefined;
+  MoreScreen: undefined;
+  GoalsScreen: undefined;
   ProjectsScreen: undefined;
   JournalScreen: undefined;
-  TradingScreen: undefined;
   AnalyticsScreen: undefined;
+  ReportsScreen: undefined;
+  CoachScreen: undefined;
   SettingsScreen: undefined;
-  HelpScreen: undefined;
 };
 
 export type RootStackParamList = {
@@ -28,13 +29,13 @@ export type RootStackParamList = {
   Onboarding: undefined;
   MainApp: NavigatorScreenParams<DrawerParamList> | undefined;
   LockScreen: undefined;
-  Tasks: { openAdd?: boolean } | undefined;
-  Ideas: undefined;
-  FocusTimerScreen: undefined;
-  AppLockSettingsScreen: undefined;
-  DataBackupScreen: undefined;
-  WeeklyReviewScreen: undefined;
-  SkillsScreen: undefined;
+  GoalsScreen: undefined;
+  ProjectsScreen: undefined;
+  JournalScreen: undefined;
+  AnalyticsScreen: undefined;
+  ReportsScreen: undefined;
+  CoachScreen: undefined;
+  SettingsScreen: undefined;
   AppearanceSettingsScreen: undefined;
   NavigationSettingsScreen: undefined;
   CategoriesSettingsScreen: undefined;
@@ -42,4 +43,6 @@ export type RootStackParamList = {
   FormBuilderSettingsScreen: undefined;
   LayoutSettingsScreen: undefined;
   GeneralPreferencesScreen: undefined;
+  AppLockSettingsScreen: undefined;
+  DataBackupScreen: undefined;
 };

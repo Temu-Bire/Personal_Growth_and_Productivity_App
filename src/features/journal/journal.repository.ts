@@ -1,188 +1,135 @@
-import { getDatabase, getDatabaseAsync } from '../../db/client';
+import { getDatabase } from '../../db/client';
 import { generateId } from '../../utils/id';
 
 export interface JournalEntry {
   id: string;
   date: string;
-  mood: number;
-  content: string;
-  tags: string | null;
+  recap: string;
+  learned: string;
+  mood_rating: number; // 1 to 5
+  energy_rating: number; // 1 to 5
+  productivity_rating: number; // 1 to 5
+  notes?: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export class JournalRepository {
-  // Sync
-  static getEntries(): JournalEntry[] {
-    const db = getDatabase();
-    return db.getAllSync<JournalEntry>('SELECT * FROM journal_entries ORDER BY date DESC, created_at DESC');
-  }
-
-  // Async non-blocking
-  static async getEntriesAsync(): Promise<JournalEntry[]> {
-    const db = await getDatabaseAsync();
-    return db.getAllAsync<JournalEntry>('SELECT * FROM journal_entries ORDER BY date DESC, created_at DESC');
-  }
-
-  // Sync
-  static getEntryByDate(date: string): JournalEntry | null {
-    const db = getDatabase();
-    return db.getFirstSync<JournalEntry>('SELECT * FROM journal_entries WHERE date = ?', [date]);
-  }
-
-  // Async non-blocking
-  static async getEntryByDateAsync(date: string): Promise<JournalEntry | null> {
-    const db = await getDatabaseAsync();
-    return db.getFirstAsync<JournalEntry>('SELECT * FROM journal_entries WHERE date = ?', [date]);
-  }
-
-  // Sync
-  static saveEntry(entry: {
-    date: string;
-    mood: number;
-    content: string;
-    tags: string[];
-  }): JournalEntry {
-    const db = getDatabase();
-    const existing = db.getFirstSync<JournalEntry>('SELECT id FROM journal_entries WHERE date = ?', [entry.date]);
-    const now = new Date().toISOString();
-    const tagsJson = JSON.stringify(entry.tags);
-
-    if (existing) {
-      db.runSync(
-        'UPDATE journal_entries SET mood = ?, content = ?, tags = ?, updated_at = ? WHERE id = ?',
-        [entry.mood, entry.content, tagsJson, now, existing.id]
-      );
-      return db.getFirstSync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?', [existing.id])!;
-    } else {
-      const id = generateId('jrnl');
-      db.runSync(
-        'INSERT INTO journal_entries (id, date, mood, content, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [id, entry.date, entry.mood, entry.content, tagsJson, now, now]
-      );
-      return db.getFirstSync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?', [id])!;
-    }
-  }
-
-  // Async non-blocking
-  static async saveEntryAsync(entry: {
-    date: string;
-    mood: number;
-    content: string;
-    tags: string[];
-  }): Promise<JournalEntry> {
-    const db = await getDatabaseAsync();
-    const existing = await db.getFirstAsync<JournalEntry>('SELECT id FROM journal_entries WHERE date = ?', [entry.date]);
-    const now = new Date().toISOString();
-    const tagsJson = JSON.stringify(entry.tags);
-
-    if (existing) {
-      await db.runAsync(
-        'UPDATE journal_entries SET mood = ?, content = ?, tags = ?, updated_at = ? WHERE id = ?',
-        [entry.mood, entry.content, tagsJson, now, existing.id]
-      );
-      const res = await db.getFirstAsync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?', [existing.id]);
-      return res!;
-    } else {
-      const id = generateId('jrnl');
-      await db.runAsync(
-        'INSERT INTO journal_entries (id, date, mood, content, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [id, entry.date, entry.mood, entry.content, tagsJson, now, now]
-      );
-      const res = await db.getFirstAsync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?', [id]);
-      return res!;
-    }
-  }
-
-  // Sync
-  static getAverageMoodLast7Days(): number {
-    const db = getDatabase();
-    const rows = db.getAllSync<{ mood: number }>(
-      'SELECT mood FROM journal_entries ORDER BY date DESC LIMIT 7'
-    );
-    if (rows.length === 0) return 4.5;
-    const sum = rows.reduce((acc, r) => acc + r.mood, 0);
-    return Number((sum / rows.length).toFixed(1));
-  }
-
-  // Async non-blocking
-  static async getAverageMoodLast7DaysAsync(): Promise<number> {
-    const db = await getDatabaseAsync();
-    const rows = await db.getAllAsync<{ mood: number }>(
-      'SELECT mood FROM journal_entries ORDER BY date DESC LIMIT 7'
-    );
-    if (rows.length === 0) return 4.5;
-    const sum = rows.reduce((acc, r) => acc + r.mood, 0);
-    return Number((sum / rows.length).toFixed(1));
-  }
-
-  // Delete
-  static deleteEntry(id: string): boolean {
-    const db = getDatabase();
-    db.runSync('DELETE FROM journal_entries WHERE id = ?;', [id]);
-    return true;
-  }
-
-  static async deleteEntryAsync(id: string): Promise<boolean> {
-    const db = await getDatabaseAsync();
-    await db.runAsync('DELETE FROM journal_entries WHERE id = ?;', [id]);
-    return true;
-  }
-
-  // Update
-  static updateEntry(
-    id: string,
-    data: { date?: string; mood?: number; content?: string; tags?: string[] }
-  ): JournalEntry | null {
-    const db = getDatabase();
-    const existing = db.getFirstSync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?;', [id]);
-    if (!existing) return null;
-
-    const now = new Date().toISOString();
-    const date = data.date || existing.date;
-    const mood = data.mood !== undefined ? data.mood : existing.mood;
-    const content = data.content !== undefined ? data.content : existing.content;
-    const tagsJson = data.tags !== undefined ? JSON.stringify(data.tags) : existing.tags;
-
-    db.runSync(
-      'UPDATE journal_entries SET date = ?, mood = ?, content = ?, tags = ?, updated_at = ? WHERE id = ?;',
-      [date, mood, content, tagsJson, now, id]
-    );
-
-    return db.getFirstSync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?;', [id]);
-  }
-
-  static async updateEntryAsync(
-    id: string,
-    data: { date?: string; mood?: number; content?: string; tags?: string[] }
-  ): Promise<JournalEntry | null> {
-    const db = await getDatabaseAsync();
-    const existing = await db.getFirstAsync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?;', [id]);
-    if (!existing) return null;
-
-    const now = new Date().toISOString();
-    const date = data.date || existing.date;
-    const mood = data.mood !== undefined ? data.mood : existing.mood;
-    const content = data.content !== undefined ? data.content : existing.content;
-    const tagsJson = data.tags !== undefined ? JSON.stringify(data.tags) : existing.tags;
-
-    await db.runAsync(
-      'UPDATE journal_entries SET date = ?, mood = ?, content = ?, tags = ?, updated_at = ? WHERE id = ?;',
-      [date, mood, content, tagsJson, now, id]
-    );
-
-    return db.getFirstAsync<JournalEntry>('SELECT * FROM journal_entries WHERE id = ?;', [id]);
-  }
-
-  // Get latest journal entry for dashboard
-  static getLatestEntry(): JournalEntry | null {
-    const db = getDatabase();
-    return db.getFirstSync<JournalEntry>('SELECT * FROM journal_entries ORDER BY date DESC, created_at DESC LIMIT 1;');
-  }
-
-  static async getLatestEntryAsync(): Promise<JournalEntry | null> {
-    const db = await getDatabaseAsync();
-    return db.getFirstAsync<JournalEntry>('SELECT * FROM journal_entries ORDER BY date DESC, created_at DESC LIMIT 1;');
-  }
+export interface SaveJournalDTO {
+  date: string;
+  recap: string;
+  learned: string;
+  mood_rating: number;
+  energy_rating: number;
+  productivity_rating: number;
+  notes?: string | null;
 }
 
+export class JournalRepository {
+  static getEntries(): JournalEntry[] {
+    const db = getDatabase();
+    const rows = db.getAllSync<any>(
+      'SELECT * FROM journal_entries ORDER BY date DESC, created_at DESC;'
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      date: r.date,
+      recap: r.recap || r.content || '',
+      learned: r.learned || r.lessons_learned || '',
+      mood_rating: r.mood_rating || r.mood || 4,
+      energy_rating: r.energy_rating || 4,
+      productivity_rating: r.productivity_rating || 4,
+      notes: r.notes || null,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    }));
+  }
+
+  static getEntryByDate(date: string): JournalEntry | null {
+    const db = getDatabase();
+    const r = db.getFirstSync<any>('SELECT * FROM journal_entries WHERE date = ?;', [date]);
+    if (!r) return null;
+    return {
+      id: r.id,
+      date: r.date,
+      recap: r.recap || r.content || '',
+      learned: r.learned || r.lessons_learned || '',
+      mood_rating: r.mood_rating || r.mood || 4,
+      energy_rating: r.energy_rating || 4,
+      productivity_rating: r.productivity_rating || 4,
+      notes: r.notes || null,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    };
+  }
+
+  static getLatestEntry(): JournalEntry | null {
+    const list = this.getEntries();
+    return list.length > 0 ? list[0] : null;
+  }
+
+  static saveEntry(entry: SaveJournalDTO): JournalEntry {
+    const db = getDatabase();
+    const existing = db.getFirstSync<any>('SELECT id FROM journal_entries WHERE date = ?;', [entry.date]);
+    const now = new Date().toISOString();
+
+    if (existing) {
+      db.runSync(
+        `UPDATE journal_entries SET
+          recap = ?, learned = ?, mood_rating = ?, mood = ?, energy_rating = ?,
+          productivity_rating = ?, notes = ?, content = ?, updated_at = ?
+         WHERE id = ?;`,
+        [
+          entry.recap.trim(),
+          entry.learned.trim(),
+          entry.mood_rating,
+          entry.mood_rating,
+          entry.energy_rating,
+          entry.productivity_rating,
+          entry.notes?.trim() || null,
+          entry.recap.trim(),
+          now,
+          existing.id,
+        ]
+      );
+      return this.getEntryByDate(entry.date)!;
+    } else {
+      const id = generateId('jrnl');
+      db.runSync(
+        `INSERT INTO journal_entries (
+          id, date, recap, learned, mood_rating, mood, energy_rating, productivity_rating, notes, content, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        [
+          id,
+          entry.date,
+          entry.recap.trim(),
+          entry.learned.trim(),
+          entry.mood_rating,
+          entry.mood_rating,
+          entry.energy_rating,
+          entry.productivity_rating,
+          entry.notes?.trim() || null,
+          entry.recap.trim(),
+          now,
+          now,
+        ]
+      );
+      return this.getEntryByDate(entry.date)!;
+    }
+  }
+
+  static getAverages(daysLimit: number = 30): { mood: number; energy: number; productivity: number } {
+    const entries = this.getEntries().slice(0, daysLimit);
+    if (entries.length === 0) {
+      return { mood: 0, energy: 0, productivity: 0 };
+    }
+    const sumMood = entries.reduce((acc, e) => acc + e.mood_rating, 0);
+    const sumEnergy = entries.reduce((acc, e) => acc + e.energy_rating, 0);
+    const sumProd = entries.reduce((acc, e) => acc + e.productivity_rating, 0);
+
+    return {
+      mood: parseFloat((sumMood / entries.length).toFixed(1)),
+      energy: parseFloat((sumEnergy / entries.length).toFixed(1)),
+      productivity: parseFloat((sumProd / entries.length).toFixed(1)),
+    };
+  }
+}

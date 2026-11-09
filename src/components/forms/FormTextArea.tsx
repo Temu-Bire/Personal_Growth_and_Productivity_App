@@ -17,6 +17,7 @@ export interface FormTextAreaProps extends TextInputProps {
   helperText?: string;
   maxLength?: number;
   containerStyle?: StyleProp<ViewStyle>;
+  characterCount?: { current: number; max: number };
 }
 
 export const FormTextArea: React.FC<FormTextAreaProps> = ({
@@ -26,6 +27,7 @@ export const FormTextArea: React.FC<FormTextAreaProps> = ({
   helperText,
   maxLength,
   containerStyle,
+  characterCount,
   value,
   onChangeText,
   style,
@@ -35,6 +37,12 @@ export const FormTextArea: React.FC<FormTextAreaProps> = ({
   const { colors, typography, radius } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
 
+  const displayCount = characterCount
+    ? `${characterCount.current}/${characterCount.max}`
+    : maxLength
+    ? `${value?.length || 0}/${maxLength}`
+    : null;
+
   return (
     <View style={[styles.wrapper, containerStyle]}>
       {/* Label Row */}
@@ -42,9 +50,9 @@ export const FormTextArea: React.FC<FormTextAreaProps> = ({
         <Text style={[styles.label, typography.captionBold, { color: colors.textSecondary }]}>
           {label.toUpperCase()} {required && <Text style={{ color: colors.danger }}>*</Text>}
         </Text>
-        {maxLength && (
+        {displayCount && (
           <Text style={[styles.counter, typography.caption, { color: colors.textMuted }]}>
-            {(value?.length || 0)}/{maxLength}
+            {displayCount}
           </Text>
         )}
       </View>

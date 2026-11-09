@@ -21,6 +21,7 @@ export interface FormInputProps extends TextInputProps {
   rightIcon?: keyof typeof Ionicons.glyphMap;
   onRightIconPress?: () => void;
   containerStyle?: StyleProp<ViewStyle>;
+  characterCount?: { current: number; max: number };
 }
 
 export const FormInput: React.FC<FormInputProps> = ({
@@ -32,6 +33,7 @@ export const FormInput: React.FC<FormInputProps> = ({
   rightIcon,
   onRightIconPress,
   containerStyle,
+  characterCount,
   value,
   onChangeText,
   style,
@@ -47,6 +49,11 @@ export const FormInput: React.FC<FormInputProps> = ({
         <Text style={[styles.label, typography.captionBold, { color: colors.textSecondary }]}>
           {label.toUpperCase()} {required && <Text style={{ color: colors.danger }}>*</Text>}
         </Text>
+        {characterCount && (
+          <Text style={[typography.caption, { color: colors.textMuted, fontSize: 11 }]}>
+            {characterCount.current}/{characterCount.max}
+          </Text>
+        )}
       </View>
 
       {/* Input Box */}

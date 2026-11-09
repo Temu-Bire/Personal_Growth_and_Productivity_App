@@ -8,6 +8,7 @@ export interface Habit {
   id: string;
   name: string;
   description?: string;
+  category?: string;
   category_id?: string;
   target_count: number;
   unit: string;
@@ -26,7 +27,9 @@ export interface Habit {
   todayCount?: number;
   progressPercent?: number;
   streak?: number;
+  current_streak?: number;
   longestStreak?: number;
+  longest_streak?: number;
   last7Days?: number[];
   parsedDays?: number[];
 }
@@ -100,15 +103,45 @@ export class HabitsRepository {
 
       return {
         ...h,
+        category: (h as any).category || (h as any).category_name || 'General',
         duration_minutes: h.duration_minutes || 15,
         todayCount,
         progressPercent,
         streak: currentStreak,
+        current_streak: currentStreak,
         longestStreak,
+        longest_streak: longestStreak,
         last7Days,
         parsedDays,
       };
     });
+  }
+
+  static getAll(): Habit[] {
+    const today = new Date().toISOString().split('T')[0];
+    return this.getAllWithProgress(today);
+  }
+
+  static getCompletionDates(habitId: string): string[] {
+    const db = getDatabase();
+    try {
+      const rows = db.getAllSync<{ date: string }>(
+        'SELECT date FROM habit_completions WHERE habit_id = ? ORDER BY date DESC;',
+        [habitId]
+      );
+      if (rows.length > 0) return rows.map((r) => r.date);
+      const fallback = db.getAllSync<{ date: string }>(
+        'SELECT date FROM habit_logs WHERE habit_id = ? ORDER BY date DESC;',
+        [habitId]
+      );
+      return fallback.map((r) => r.date);
+    } catch {
+      return [];
+    }
+  }
+
+  static toggleCompletion(habitId: string, date: string): void {
+    this.toggleOrIncrement(habitId, date);
   }
 
   // Toggle habit completion on a given date (with notes and atomic transaction)

@@ -14,14 +14,15 @@ import {
 
 export const DEFAULT_SIDEBAR_ITEMS: SidebarNavItem[] = [
   { id: 'dashboard', routeName: 'DashboardScreen', label: 'Dashboard', icon: 'grid-outline', isHidden: false, isSystem: true, order: 0, category: 'Core' },
-  { id: 'planner', routeName: 'PlannerScreen', label: 'Daily Planner', icon: 'calendar-outline', isHidden: false, isSystem: false, order: 1, category: 'Planning' },
-  { id: 'habits', routeName: 'HabitsScreen', label: 'Habit Tracker', icon: 'flash-outline', isHidden: false, isSystem: false, order: 2, category: 'Productivity' },
-  { id: 'tasks', routeName: 'TasksScreen', label: 'Task Management', icon: 'checkbox-outline', isHidden: false, isSystem: false, order: 3, category: 'Planning' },
-  { id: 'goals', routeName: 'GoalsScreen', label: 'Goal Management', icon: 'flag-outline', isHidden: false, isSystem: false, order: 4, category: 'Planning' },
-  { id: 'journal', routeName: 'JournalScreen', label: 'Daily Journal', icon: 'book-outline', isHidden: false, isSystem: false, order: 5, category: 'Growth' },
-  { id: 'analytics', routeName: 'AnalyticsScreen', label: 'Analytics & Trends', icon: 'pie-chart-outline', isHidden: false, isSystem: false, order: 6, category: 'Growth' },
-  { id: 'coach', routeName: 'CoachScreen', label: 'AI Life Coach', icon: 'sparkles-outline', isHidden: false, isSystem: false, order: 7, category: 'Intelligence' },
-  { id: 'settings', routeName: 'SettingsScreen', label: 'Settings', icon: 'settings-outline', isHidden: false, isSystem: true, order: 8, category: 'System' },
+  { id: 'habits', routeName: 'HabitsScreen', label: 'Habits', icon: 'checkbox-outline', isHidden: false, isSystem: false, order: 1, category: 'Habits' },
+  { id: 'tasks', routeName: 'TasksScreen', label: 'Tasks', icon: 'list-outline', isHidden: false, isSystem: false, order: 2, category: 'Tasks' },
+  { id: 'goals', routeName: 'GoalsScreen', label: 'Goals', icon: 'flag-outline', isHidden: false, isSystem: false, order: 3, category: 'Goals' },
+  { id: 'projects', routeName: 'ProjectsScreen', label: 'Projects', icon: 'folder-outline', isHidden: false, isSystem: false, order: 4, category: 'Projects' },
+  { id: 'journal', routeName: 'JournalScreen', label: 'Journal', icon: 'book-outline', isHidden: false, isSystem: false, order: 5, category: 'Journal' },
+  { id: 'analytics', routeName: 'AnalyticsScreen', label: 'Analytics', icon: 'stats-chart-outline', isHidden: false, isSystem: false, order: 6, category: 'Analytics' },
+  { id: 'reports', routeName: 'ReportsScreen', label: 'Reports', icon: 'document-text-outline', isHidden: false, isSystem: false, order: 7, category: 'Reports' },
+  { id: 'coach', routeName: 'CoachScreen', label: 'AI Coach', icon: 'sparkles-outline', isHidden: false, isSystem: false, order: 8, category: 'Coach' },
+  { id: 'settings', routeName: 'SettingsScreen', label: 'Settings', icon: 'settings-outline', isHidden: false, isSystem: true, order: 9, category: 'Settings' },
 ];
 
 export const DEFAULT_DASHBOARD_WIDGETS: DashboardWidgetConfig[] = [

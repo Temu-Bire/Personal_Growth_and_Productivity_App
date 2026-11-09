@@ -1,672 +1,339 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
-  Alert,
-  Image,
+  TouchableOpacity,
   TextInput,
-  Linking,
+  Switch,
+  Alert,
 } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import * as ImagePicker from 'expo-image-picker';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { Chip } from '../../../components/ui/Chip';
 import { BottomSheetModal } from '../../../components/ui/BottomSheetModal';
-import { useSettingsStore, ThemeMode } from '../../../store/useSettingsStore';
 import { useTheme } from '../../../hooks/useTheme';
+import { useSettingsStore } from '../../../store/useSettingsStore';
+import { SettingsRepository, CategoryItem } from '../settings.repository';
+import { FormInput } from '../../../components/forms';
 
-const FOCUS_OPTIONS = ['Study', 'Work', 'Trading', 'Habits', 'Personal'];
+const COLOR_PALETTE = [
+  '#22C55E', // Green (Health)
+  '#3B82F6', // Blue (Career)
+  '#EAB308', // Yellow (Finance)
+  '#A855F7', // Purple (Learning)
+  '#14B8A6', // Teal (Faith)
+  '#64748B', // Slate (Personal)
+  '#EC4899', // Pink
+  '#F97316', // Orange
+  '#06B6D4', // Cyan
+  '#84CC16', // Lime
+];
 
 export const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const {
-    profileName,
-    profileAvatar,
-    profileFocus,
-    themeMode,
-    setThemeMode,
-    updateProfile,
-    setIsLocked,
-    appLockEnabled,
-    appLockPin,
-    setAppLock,
-  } = useSettingsStore();
-
   const { colors, typography, radius } = useTheme();
+  const profileName = useSettingsStore((s) => s.profileName) || 'Temesgen Birhenu';
+  const updateProfile = useSettingsStore((s) => s.updateProfile);
+  const dailyReminderEnabled = useSettingsStore((s) => s.dailyReminderEnabled);
+  const updateNotificationSettings = useSettingsStore((s) => s.updateNotificationSettings);
 
-  // Modals state
-  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
-  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [nameInput, setNameInput] = useState(profileName);
+  const [digestEnabled, setDigestEnabled] = useState(dailyReminderEnabled);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
 
-  // Edit Profile Form State
-  const [editName, setEditName] = useState(profileName);
-  const [editFocus, setEditFocus] = useState(profileFocus);
-  const [editAvatar, setEditAvatar] = useState<string | null>(profileAvatar);
+  // Edit category sheet modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState('#22C55E');
 
-  const handleOpenEditProfile = () => {
-    setEditName(profileName);
-    setEditFocus(profileFocus);
-    setEditAvatar(profileAvatar);
-    setIsEditProfileOpen(true);
-  };
+  const loadCategories = useCallback(() => {
+    const list = SettingsRepository.getCategories();
+    setCategories(list);
+  }, []);
 
-  const handlePickEditAvatar = async () => {
-    try {
-      const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
+  useFocusEffect(
+    useCallback(() => {
+      loadCategories();
+    }, [loadCategories])
+  );
 
-      if (!res.canceled && res.assets && res.assets[0]) {
-        setEditAvatar(res.assets[0].uri);
-      }
-    } catch {
-      // safe fallback
-    }
-  };
-
-  const handleSaveProfile = async () => {
-    const trimmed = editName.trim();
-    if (!trimmed) {
-      Alert.alert('Name Required', 'Please enter your display name or username.');
+  const handleSaveName = async () => {
+    if (!nameInput.trim()) {
+      Alert.alert('Required', 'Please enter your name.');
       return;
     }
-
-    await updateProfile({
-      name: trimmed,
-      avatar: editAvatar,
-      focus: editFocus,
-    });
-
-    setIsEditProfileOpen(false);
-    Alert.alert('Profile Saved', 'Your profile details have been updated.');
+    await updateProfile({ name: nameInput.trim() });
+    Alert.alert('Saved', 'Your name has been updated.');
   };
 
-  const handleLockNow = () => {
-    if (!appLockEnabled || !appLockPin) {
-      Alert.alert(
-        'App Lock PIN Required',
-        'You have not configured a 4-digit PIN yet. Would you like to configure your PIN now, or activate quick lock with default PIN (0000)?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Configure PIN',
-            onPress: () => navigation.navigate('AppLockSettingsScreen'),
-          },
-          {
-            text: 'Quick Lock (0000)',
-            onPress: async () => {
-              await setAppLock({ enabled: true, pin: '0000' });
-              setIsLocked(true);
-              navigation.navigate('LockScreen');
-            },
-          },
-        ]
-      );
+  const handleToggleDigest = async (val: boolean) => {
+    setDigestEnabled(val);
+    await updateNotificationSettings(val, '08:00 AM');
+  };
+
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) {
+      Alert.alert('Required', 'Please enter a category name.');
       return;
     }
+    SettingsRepository.addCategory(newCategoryName.trim(), '#22C55E');
+    setNewCategoryName('');
+    loadCategories();
+  };
 
-    setIsLocked(true);
-    navigation.navigate('LockScreen');
+  const handleOpenEdit = (cat: CategoryItem) => {
+    setEditingCategory(cat);
+    setEditName(cat.name);
+    setEditColor(cat.color);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveCategory = () => {
+    if (!editingCategory || !editName.trim()) return;
+    SettingsRepository.updateCategory(editingCategory.id, editName.trim(), editColor);
+    setIsEditModalOpen(false);
+    setEditingCategory(null);
+    loadCategories();
+  };
+
+  const handleDeleteCategory = (cat: CategoryItem) => {
+    Alert.alert('Delete Category', `Are you sure you want to delete "${cat.name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          SettingsRepository.deleteCategory(cat.id);
+          loadCategories();
+        },
+      },
+    ]);
+  };
+
+  const handleEraseAllData = () => {
+    Alert.alert(
+      'Erase All Data',
+      'Deletes every habit, task, goal and entry on this phone. This cannot be undone. Are you completely sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Erase Data',
+          style: 'destructive',
+          onPress: () => {
+            SettingsRepository.eraseAllData();
+            Alert.alert('Data Erased', 'All habits, tasks, goals, and journal entries have been cleared.');
+            loadCategories();
+          },
+        },
+      ]
+    );
   };
 
   return (
-    <Screen scroll backgroundColor={colors.background} contentContainerStyle={styles.scrollPadding}>
+    <Screen backgroundColor={colors.background} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => navigation.openDrawer()}
-            style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            accessibilityRole="button"
-            accessibilityLabel="Open Menu"
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
           >
-            <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+            <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]}>
-            Settings
-          </Text>
-        </View>
-
-        {/* Profile Card with Quick Edit */}
-        <Card style={styles.profileCard}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={handleOpenEditProfile}
-            style={styles.avatarWrap}
-            accessibilityRole="button"
-            accessibilityLabel="Change avatar"
-          >
-            {profileAvatar ? (
-              <Image source={{ uri: profileAvatar }} style={styles.avatarImg} />
-            ) : (
-              <View style={[styles.avatarBox, { backgroundColor: colors.accentMint }]}>
-                <Text style={[typography.h1, { color: colors.primary, fontWeight: '800' }]}>
-                  {profileName ? profileName.charAt(0).toUpperCase() : 'G'}
-                </Text>
-              </View>
-            )}
-            <View style={[styles.cameraBadge, { backgroundColor: colors.primary }]}>
-              <Ionicons name="camera" size={14} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={handleOpenEditProfile}
-            style={styles.profileInfo}
-            accessibilityRole="button"
-            accessibilityLabel="Edit profile name"
-          >
-            <View style={styles.nameRow}>
-              <Text style={[typography.h2, { color: colors.textPrimary, fontWeight: '700', flex: 1 }]} numberOfLines={1}>
-                {profileName || 'Temesgen'}
-              </Text>
-              <View style={[styles.editBadge, { backgroundColor: colors.accentMint }]}>
-                <Ionicons name="pencil" size={13} color={colors.primary} style={{ marginRight: 4 }} />
-                <Text style={[typography.captionBold, { color: colors.primary }]}>
-                  Edit
-                </Text>
-              </View>
-            </View>
-            <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
-              Focus: {profileFocus} · 100% Offline
-            </Text>
-          </TouchableOpacity>
-        </Card>
-
-        {/* SECTION: App Personalization & Customization */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, typography.h3, { color: colors.textPrimary }]}>
-            Personalization & Customization
-          </Text>
-          <View style={[styles.proBadge, { backgroundColor: colors.accentMint }]}>
-            <Ionicons name="sparkles" size={12} color={colors.primary} style={{ marginRight: 4 }} />
-            <Text style={[typography.captionBold, { color: colors.primary, fontSize: 11 }]}>
-              CUSTOMIZE
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={[typography.h1, { color: colors.textPrimary }]}>Settings</Text>
+            <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
+              Categories organize your goals, habits, and tasks
             </Text>
           </View>
         </View>
 
-        <Card style={styles.menuCard}>
-          {/* 1. Appearance & Theme */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('AppearanceSettingsScreen')}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="Appearance and Theme"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: colors.accentMint }]}>
-              <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                Appearance & Theme
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Color palettes, custom colors, contrast & font scaling
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-          {/* 2. Navigation & Sidebar */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('NavigationSettingsScreen')}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="Navigation and Sidebar"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#EDE9FE' }]}>
-              <Ionicons name="menu-outline" size={20} color="#6D4AFF" />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                Sidebar & Navigation
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Reorder, hide, rename & create custom pages
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-          {/* 3. Categories & Units */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('CategoriesSettingsScreen')}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="Categories and Units"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#FEF3C7' }]}>
-              <Ionicons name="pricetags-outline" size={20} color="#D97706" />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                Categories & Units
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Custom categories, colors, icons & measurement units
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-          {/* 4. Dashboard Customization */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('DashboardSettingsScreen')}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="Dashboard Customization"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#E0F2FE' }]}>
-              <Ionicons name="apps-outline" size={20} color="#0284C7" />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                Dashboard Feed
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Show, hide, reorder & resize feed widgets
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-          {/* 5. Form Builder */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('FormBuilderSettingsScreen')}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="Form Builder"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#FCE7F3' }]}>
-              <Ionicons name="construct-outline" size={20} color="#DB2777" />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                Form Builder
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Add custom fields, sections, required rules & preview
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-          {/* 6. Layout & Lists */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('LayoutSettingsScreen')}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="Layout and Lists"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#DCFCE7' }]}>
-              <Ionicons name="layers-outline" size={20} color="#16A34A" />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                Layout & Lists
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Card, list, compact, grid views & default sorting
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-          {/* 7. General Preferences */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('GeneralPreferencesScreen')}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="General Preferences"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#F3F4F6' }]}>
-              <Ionicons name="options-outline" size={20} color="#4B5563" />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                General Preferences
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Date format, week start day, sounds & haptics
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-        </Card>
-
-        {/* SECTION: System & Data */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, typography.h3, { color: colors.textPrimary }]}>
-            Security & System
-          </Text>
-        </View>
-
-        {/* Settings Options Group */}
-        <Card style={styles.menuCard}>
-          {/* Profile & Name Editor */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={handleOpenEditProfile}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="Edit Profile"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: colors.accentMint }]}>
-              <Ionicons name="person-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                Profile & Username
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Change your name, avatar & main focus
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-          {/* App Lock & Security */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('AppLockSettingsScreen')}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="App Lock and Security"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#EDE9FE' }]}>
-              <Ionicons name="lock-closed" size={20} color="#6D4AFF" />
-            </View>
-            <View style={styles.menuText}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                  App Lock & Security
-                </Text>
-                <View style={[styles.newBadge, { backgroundColor: colors.primary }]}>
-                  <Text style={[typography.captionBold, { color: '#FFFFFF', fontSize: 10 }]}>
-                    NEW
-                  </Text>
-                </View>
-              </View>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                PIN, biometrics & screen protection
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-          {/* Appearance */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setIsThemeModalOpen(true)}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="Appearance"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: colors.accentMint }]}>
-              <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                Appearance
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted, textTransform: 'capitalize' }]}>
-                {themeMode} Mode
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-          {/* Data & Backup */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('DataBackupScreen')}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="Data and Backup"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#E0F2FE' }]}>
-              <Ionicons name="cloud-download-outline" size={20} color="#0284C7" />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                Data & Backup
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Export, import & local storage
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-          {/* Help & Support */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('HelpScreen')}
-            style={styles.menuRow}
-            accessibilityRole="button"
-            accessibilityLabel="Help and Support"
-          >
-            <View style={[styles.iconCircle, { backgroundColor: '#FEF3C7' }]}>
-              <Ionicons name="help-circle-outline" size={20} color="#D97706" />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
-                Help & Support
-              </Text>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                FAQ, guides & send feedback
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-        </Card>
-
-        {/* Lock App Now Button */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={handleLockNow}
-          style={[styles.lockNowBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          accessibilityRole="button"
-          accessibilityLabel="Lock App Now"
-        >
-          <Ionicons name="lock-closed" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-          <Text style={[typography.bodyBold, { color: colors.primary }]}>
-            Lock App Now
-          </Text>
-        </TouchableOpacity>
-
-        {/* Theme Picker Modal */}
-        <BottomSheetModal
-          visible={isThemeModalOpen}
-          onClose={() => setIsThemeModalOpen(false)}
-          title="Select Appearance"
-        >
-          <View style={{ gap: 10, paddingVertical: 10 }}>
-            {(['system', 'light', 'dark'] as ThemeMode[]).map((mode) => (
-              <TouchableOpacity
-                key={mode}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setThemeMode(mode);
-                  setIsThemeModalOpen(false);
-                }}
-                style={[
-                  styles.themeChoice,
-                  {
-                    backgroundColor: themeMode === mode ? colors.accentMint : colors.inputBg,
-                    borderColor: themeMode === mode ? colors.primary : colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    typography.bodyBold,
-                    {
-                      color: themeMode === mode ? colors.primary : colors.textPrimary,
-                      textTransform: 'capitalize',
-                    },
-                  ]}
-                >
-                  {mode}
-                </Text>
-                {themeMode === mode && (
-                  <Ionicons name="checkmark" size={20} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </BottomSheetModal>
-
-        {/* Edit Profile Modal */}
-        <BottomSheetModal
-          visible={isEditProfileOpen}
-          onClose={() => setIsEditProfileOpen(false)}
-          title="Edit Profile"
-        >
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.editProfileContainer}>
-            {/* Avatar Picker in Modal */}
-            <View style={styles.modalAvatarRow}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={handlePickEditAvatar}
-                style={styles.modalAvatarWrap}
-              >
-                {editAvatar ? (
-                  <Image source={{ uri: editAvatar }} style={styles.modalAvatarImg} />
-                ) : (
-                  <View style={[styles.modalAvatarBox, { backgroundColor: colors.accentMint }]}>
-                    <Text style={[typography.hero, { color: colors.primary, fontSize: 32 }]}>
-                      {editName ? editName.charAt(0).toUpperCase() : 'G'}
-                    </Text>
-                  </View>
-                )}
-                <View style={[styles.modalCameraBadge, { backgroundColor: colors.primary }]}>
-                  <Ionicons name="camera" size={16} color="#FFFFFF" />
-                </View>
-              </TouchableOpacity>
-
-              <View style={styles.modalAvatarActions}>
-                <TouchableOpacity
-                  onPress={handlePickEditAvatar}
-                  style={[styles.smallBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
-                >
-                  <Text style={[typography.captionBold, { color: colors.textPrimary }]}>
-                    Choose Photo
-                  </Text>
-                </TouchableOpacity>
-
-                {editAvatar && (
-                  <TouchableOpacity
-                    onPress={() => setEditAvatar(null)}
-                    style={[styles.smallBtn, { marginTop: 8 }]}
-                  >
-                    <Text style={[typography.captionBold, { color: colors.danger }]}>
-                      Remove Photo
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            {/* Display Name / Username Input */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, typography.captionBold, { color: colors.textSecondary }]}>
-                NAME / USERNAME
-              </Text>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* 1. Your name card */}
+          <Card style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[typography.captionBold, { color: colors.textSecondary, marginBottom: 8 }]}>
+              Your name
+            </Text>
+            <View style={styles.inputActionRow}>
               <TextInput
-                value={editName}
-                onChangeText={setEditName}
-                placeholder="Enter your name"
+                value={nameInput}
+                onChangeText={setNameInput}
+                placeholder="Temesgen Birhenu"
                 placeholderTextColor={colors.textMuted}
                 style={[
                   styles.textInput,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.border,
-                    color: colors.textPrimary,
-                  },
+                  { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
                 ]}
-                autoCapitalize="words"
-                returnKeyType="done"
-              />
-            </View>
-
-            {/* Main Focus Options */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, typography.captionBold, { color: colors.textSecondary }]}>
-                PRIMARY FOCUS
-              </Text>
-              <View style={styles.chipRow}>
-                {FOCUS_OPTIONS.map((f) => {
-                  const isSelected = editFocus === f;
-                  return (
-                    <Chip
-                      key={f}
-                      label={f}
-                      selected={isSelected}
-                      onPress={() => setEditFocus(f)}
-                      style={styles.chipItem}
-                    />
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.modalBtnRow}>
-              <Button
-                title="Cancel"
-                variant="ghost"
-                onPress={() => setIsEditProfileOpen(false)}
-                style={{ flex: 1, marginRight: 8 }}
               />
               <Button
-                title="Save Changes"
+                title="Save"
+                onPress={handleSaveName}
                 variant="primary"
-                onPress={handleSaveProfile}
-                style={{ flex: 1, marginLeft: 8 }}
+                size="md"
+                style={{ marginLeft: 8 }}
               />
             </View>
-          </ScrollView>
+          </Card>
+
+          {/* 2. Daily digest card */}
+          <Card style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.toggleRow}>
+              <View>
+                <Text style={[typography.bodyBold, { color: colors.textPrimary }]}>
+                  Daily digest
+                </Text>
+                <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
+                  Local reminder at 8:00 AM
+                </Text>
+              </View>
+              <Switch
+                value={digestEnabled}
+                onValueChange={handleToggleDigest}
+                trackColor={{ false: colors.border, true: '#22C55E' }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+          </Card>
+
+          {/* 3. Add a category card */}
+          <Card style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[typography.captionBold, { color: colors.textSecondary, marginBottom: 8 }]}>
+              Add a category
+            </Text>
+            <View style={styles.inputActionRow}>
+              <TextInput
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+                placeholder="e.g. Fitness"
+                placeholderTextColor={colors.textMuted}
+                style={[
+                  styles.textInput,
+                  { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
+                ]}
+              />
+              <Button
+                title="+ Add"
+                onPress={handleAddCategory}
+                variant="primary"
+                size="md"
+                style={{ marginLeft: 8 }}
+              />
+            </View>
+          </Card>
+
+          {/* 4. Categories List */}
+          <View style={styles.categoriesHeader}>
+            <Text style={[typography.captionBold, { color: colors.textSecondary, letterSpacing: 0.5 }]}>
+              Categories {categories.length}
+            </Text>
+          </View>
+
+          <Card style={[styles.categoriesCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {categories.map((cat) => (
+              <View key={cat.id} style={styles.categoryRow}>
+                <View style={styles.categoryLeft}>
+                  <View style={[styles.catColorCircle, { backgroundColor: cat.color }]} />
+                  <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>
+                    {cat.name}
+                  </Text>
+                </View>
+
+                <View style={styles.categoryActions}>
+                  <TouchableOpacity
+                    onPress={() => handleOpenEdit(cat)}
+                    style={styles.textActionBtn}
+                  >
+                    <Text style={[typography.captionBold, { color: colors.textSecondary }]}>
+                      edit
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteCategory(cat)}
+                    style={styles.textActionBtn}
+                  >
+                    <Text style={[typography.captionBold, { color: colors.danger }]}>
+                      del
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </Card>
+
+          {/* 5. Erase all data card */}
+          <Card style={[styles.eraseCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[typography.bodyBold, { color: colors.danger }]}>
+              Erase all data
+            </Text>
+            <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4, marginBottom: 12 }]}>
+              Deletes every habit, task, goal and entry on this phone. This cannot be undone.
+            </Text>
+            <Button
+              title="Erase data"
+              onPress={handleEraseAllData}
+              variant="danger"
+              size="md"
+            />
+          </Card>
+        </ScrollView>
+
+        {/* Edit Category Sheet Modal */}
+        <BottomSheetModal
+          visible={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title="Edit category"
+        >
+          <View style={styles.modalForm}>
+            <FormInput
+              label="Name"
+              required
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="e.g. Health"
+            />
+
+            <Text style={[typography.captionBold, { color: colors.textSecondary, marginTop: 8, marginBottom: 10 }]}>
+              Color
+            </Text>
+            <View style={styles.paletteGrid}>
+              {COLOR_PALETTE.map((c) => {
+                const isSelected = editColor === c;
+                return (
+                  <TouchableOpacity
+                    key={c}
+                    onPress={() => setEditColor(c)}
+                    style={[
+                      styles.paletteCircle,
+                      { backgroundColor: c },
+                      isSelected && { borderColor: '#FFFFFF', borderWidth: 3 },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+
+            <Button
+              title="Save category"
+              onPress={handleSaveCategory}
+              variant="primary"
+              size="lg"
+              style={{ marginTop: 20 }}
+            />
+            <Button
+              title="Cancel"
+              onPress={() => setIsEditModalOpen(false)}
+              variant="ghost"
+              size="md"
+              style={{ marginTop: 8 }}
+            />
+          </View>
         </BottomSheetModal>
       </View>
     </Screen>
@@ -674,220 +341,96 @@ export const SettingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  scrollPadding: {
-    paddingBottom: 60,
-  },
   container: {
+    flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 8,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 8,
-  },
-  menuBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontWeight: '800',
-  },
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    marginBottom: 16,
-  },
-  avatarWrap: {
-    position: 'relative',
-  },
-  avatarImg: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-  },
-  avatarBox: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cameraBadge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  profileInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  editBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  menuCard: {
-    padding: 10,
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    marginTop: 6,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontWeight: '700',
-  },
-  proBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-  },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuText: {
-    flex: 1,
-    marginLeft: 14,
-  },
-  newBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  divider: {
-    height: 1,
-    marginVertical: 2,
-  },
-  lockNowBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 14,
+  },
+  backBtn: {
+    padding: 6,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  sectionCard: {
+    padding: 14,
+    marginBottom: 12,
     borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 24,
   },
-  themeChoice: {
+  inputActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  editProfileContainer: {
-    paddingTop: 8,
-    paddingBottom: 24,
-  },
-  modalAvatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalAvatarWrap: {
-    position: 'relative',
-    marginRight: 16,
-  },
-  modalAvatarImg: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-  },
-  modalAvatarBox: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCameraBadge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  modalAvatarActions: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  smallBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    alignSelf: 'flex-start',
-  },
-  inputGroup: {
-    marginBottom: 18,
-  },
-  inputLabel: {
-    marginBottom: 6,
-    letterSpacing: 0.5,
   },
   textInput: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
+    flex: 1,
+    height: 44,
     borderWidth: 1,
-    fontSize: 16,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  chipItem: {
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    fontSize: 15,
   },
-  modalBtnRow: {
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  categoriesHeader: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  categoriesCard: {
+    paddingVertical: 4,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    borderRadius: 14,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  categoryLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+  },
+  catColorCircle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+  categoryActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  textActionBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  eraseCard: {
+    padding: 16,
+    marginBottom: 20,
+    borderRadius: 14,
+  },
+  modalForm: {
+    paddingBottom: 24,
+  },
+  paletteGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 10,
+  },
+  paletteCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
   },
 });

@@ -236,59 +236,22 @@ export const HabitsScreen: React.FC = () => {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => navigation.openDrawer()}
-              style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              accessibilityRole="button"
-              accessibilityLabel="Open Menu"
-            >
-              <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]} numberOfLines={1}>
-              Habit Tracker
+            <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary }]} numberOfLines={1}>
+              Habits
+            </Text>
+            <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
+              Recurring activities that build over time
             </Text>
           </View>
-
-          <View style={styles.headerRight}>
-            <ViewModeSwitcher pageKey="habits" />
-            <TouchableOpacity
-              onPress={handleOpenAdd}
-              style={[styles.addIconBtn, { backgroundColor: colors.accentMint, marginLeft: 8 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Add Habit"
-            >
-              <Ionicons name="add" size={24} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
         </View>
-
-        {/* Streak & Consistency Banner */}
-        <Card style={[styles.streakBanner, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.streakInfo}>
-            <View style={styles.streakRow}>
-              <View style={[styles.fireCircle, { backgroundColor: colors.accentMint }]}>
-                <Ionicons name="flame" size={20} color={colors.primary} />
-              </View>
-              <View style={{ marginLeft: 10 }}>
-                <Text style={[typography.h3, { color: colors.textPrimary }]}>
-                  {overallStreaks > 0 ? `${overallStreaks} Day Active Streak` : 'Start Today\'s Habit Streak'}
-                </Text>
-                <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                  Consistency over intensity creates permanent identity.
-                </Text>
-              </View>
-            </View>
-          </View>
-        </Card>
 
         {/* Frequency Filter Chips */}
         <View style={styles.filterBar}>
           {[
-            { key: 'all', label: 'All Habits' },
+            { key: 'all', label: 'All' },
             { key: 'daily', label: 'Daily' },
             { key: 'weekly', label: 'Weekly' },
-            { key: 'monthly', label: 'Monthly' },
+            { key: 'custom', label: 'Custom' },
           ].map((tab) => {
             const isSelected = filterFrequency === tab.key;
             return (
@@ -298,16 +261,15 @@ export const HabitsScreen: React.FC = () => {
                 style={[
                   styles.filterChip,
                   {
-                    backgroundColor: isSelected ? colors.primary : colors.inputBg,
-                    borderColor: isSelected ? colors.primary : colors.border,
-                    borderRadius: radius.round,
+                    backgroundColor: isSelected ? colors.card : 'transparent',
+                    borderColor: isSelected ? colors.textPrimary : colors.border,
                   },
                 ]}
               >
                 <Text
                   style={[
                     typography.captionBold,
-                    { color: isSelected ? '#FFFFFF' : colors.textSecondary },
+                    { color: isSelected ? colors.textPrimary : colors.textSecondary },
                   ]}
                 >
                   {tab.label}
@@ -409,6 +371,21 @@ export const HabitsScreen: React.FC = () => {
             })
           )}
         </ScrollView>
+
+        <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center', marginVertical: 8 }]}>
+          Tap = open | Swipe left = edit / delete
+        </Text>
+
+        {/* Floating + Button */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleOpenAdd}
+          style={[styles.fab, { backgroundColor: colors.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel="Add Habit"
+        >
+          <Ionicons name="add" size={28} color="#000000" />
+        </TouchableOpacity>
 
         {/* Add Habit Sheet Modal using Standardized Dayvane Forms */}
         <BottomSheetModal
@@ -883,5 +860,20 @@ const styles = StyleSheet.create({
   detailActionsRow: {
     flexDirection: 'row',
     marginTop: 16,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
 });

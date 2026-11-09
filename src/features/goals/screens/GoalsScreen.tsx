@@ -269,41 +269,31 @@ export const GoalsScreen: React.FC = () => {
           <View style={styles.headerLeft}>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => navigation.openDrawer()}
+              onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.openDrawer())}
               style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
               accessibilityRole="button"
-              accessibilityLabel="Open Menu"
+              accessibilityLabel="Back"
             >
-              <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
+              <Ionicons name={navigation.canGoBack() ? 'arrow-back' : 'menu-outline'} size={22} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]} numberOfLines={1}>
-              Goal Management
-            </Text>
-          </View>
-
-          <View style={styles.headerRight}>
-            <ViewModeSwitcher pageKey="goals" />
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => setIsAddOpen(true)}
-              style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
-              accessibilityRole="button"
-              accessibilityLabel="Add Goal"
-            >
-              <Ionicons name="add" size={24} color={colors.primary} />
-            </TouchableOpacity>
+            <View style={{ marginLeft: 10 }}>
+              <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary }]} numberOfLines={1}>
+                Goals
+              </Text>
+              <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                Long-term objectives, broken into tasks
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Term & Status Filter Chips */}
+        {/* Status Filter Chips: Active, Done, Paused */}
         <View style={styles.filterRow}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
             {[
-              { key: 'active', label: 'Active Goals' },
-              { key: 'completed', label: 'Completed' },
+              { key: 'active', label: 'Active' },
+              { key: 'completed', label: 'Done' },
               { key: 'paused', label: 'Paused' },
-              { key: 'archived', label: 'Archived' },
-              { key: 'all', label: 'All Goals' },
             ].map((tab) => {
               const isSelected = statusFilter === tab.key;
               return (
@@ -313,52 +303,18 @@ export const GoalsScreen: React.FC = () => {
                   style={[
                     styles.filterChip,
                     {
-                      backgroundColor: isSelected ? colors.primary : colors.inputBg,
-                      borderColor: isSelected ? colors.primary : colors.border,
-                      borderRadius: radius.round,
+                      backgroundColor: isSelected ? colors.card : 'transparent',
+                      borderColor: isSelected ? colors.textPrimary : colors.border,
                     },
                   ]}
                 >
                   <Text
                     style={[
                       typography.captionBold,
-                      { color: isSelected ? '#FFFFFF' : colors.textSecondary },
+                      { color: isSelected ? colors.textPrimary : colors.textSecondary },
                     ]}
                   >
                     {tab.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-
-            <View style={[styles.filterDivider, { backgroundColor: colors.border }]} />
-
-            {[
-              { key: 'all', label: 'All Terms' },
-              { key: 'short_term', label: 'Short-Term' },
-              { key: 'long_term', label: 'Long-Term' },
-            ].map((term) => {
-              const isSelected = termFilter === term.key;
-              return (
-                <TouchableOpacity
-                  key={term.key}
-                  onPress={() => setTermFilter(term.key as any)}
-                  style={[
-                    styles.filterChip,
-                    {
-                      backgroundColor: isSelected ? colors.accentMint : colors.inputBg,
-                      borderColor: isSelected ? colors.primary : colors.border,
-                      borderRadius: radius.round,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      typography.captionBold,
-                      { color: isSelected ? colors.primary : colors.textSecondary },
-                    ]}
-                  >
-                    {term.label}
                   </Text>
                 </TouchableOpacity>
               );
@@ -635,6 +591,17 @@ export const GoalsScreen: React.FC = () => {
           )}
         </ScrollView>
 
+        {/* Floating + Button */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => setIsAddOpen(true)}
+          style={[styles.fab, { backgroundColor: colors.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel="Add Goal"
+        >
+          <Ionicons name="add" size={28} color="#000000" />
+        </TouchableOpacity>
+
         {/* Add Goal Modal with Standardized Forms */}
         <BottomSheetModal
           visible={isAddOpen}
@@ -910,5 +877,20 @@ const styles = StyleSheet.create({
   },
   modalForm: {
     paddingBottom: 30,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
 });

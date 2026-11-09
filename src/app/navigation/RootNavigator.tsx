@@ -4,12 +4,16 @@ import { SplashScreen } from '../../features/splash/SplashScreen';
 import { OnboardingScreen } from '../../features/onboarding/OnboardingScreen';
 import { LockScreen } from '../../features/settings/LockScreen';
 import { DrawerNavigator } from './DrawerNavigator';
+import { GoalsScreen } from '../../features/goals/screens/GoalsScreen';
+import { ProjectsScreen } from '../../features/projects/screens/ProjectsScreen';
+import { JournalScreen } from '../../features/journal/screens/JournalScreen';
+import { AnalyticsScreen } from '../../features/analytics/screens/AnalyticsScreen';
+import { ReportsScreen } from '../../features/reports/screens/ReportsScreen';
+import { CoachScreen } from '../../features/coach/screens/CoachScreen';
+import { SettingsScreen } from '../../features/settings/screens/SettingsScreen';
 import { TasksScreen } from '../../features/tasks/screens/TasksScreen';
-import { FocusTimerScreen } from '../../features/focus-timer/screens/FocusTimerScreen';
 import { AppLockSettingsScreen } from '../../features/settings/screens/AppLockSettingsScreen';
 import { DataBackupScreen } from '../../features/settings/screens/DataBackupScreen';
-import { WeeklyReviewScreen } from '../../features/weekly-review/screens/WeeklyReviewScreen';
-import { SkillsScreen } from '../../features/skills/screens/SkillsScreen';
 import { AppearanceSettingsScreen } from '../../features/settings/screens/AppearanceSettingsScreen';
 import { NavigationSettingsScreen } from '../../features/settings/screens/NavigationSettingsScreen';
 import { CategoriesSettingsScreen } from '../../features/settings/screens/CategoriesSettingsScreen';
@@ -17,7 +21,6 @@ import { DashboardSettingsScreen } from '../../features/settings/screens/Dashboa
 import { FormBuilderSettingsScreen } from '../../features/settings/screens/FormBuilderSettingsScreen';
 import { LayoutSettingsScreen } from '../../features/settings/screens/LayoutSettingsScreen';
 import { GeneralPreferencesScreen } from '../../features/settings/screens/GeneralPreferencesScreen';
-import { IdeasScreen } from '../../features/ideas/screens/IdeasScreen';
 
 import { RootStackParamList } from './types';
 
@@ -37,42 +40,44 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="LockScreen" component={LockScreen} />
       <Stack.Screen name="MainApp" component={DrawerNavigator} />
 
-      {/* Detail / Fullscreen routes */}
+      {/* Dayvane Fullscreen / Modal Routes from More menu */}
       <Stack.Screen
-        name="Tasks"
-        component={TasksScreen}
+        name="GoalsScreen"
+        component={GoalsScreen}
         options={{ animation: 'slide_from_right' }}
       />
       <Stack.Screen
-        name="FocusTimerScreen"
-        component={FocusTimerScreen}
-        options={{ animation: 'slide_from_bottom' }}
-      />
-      <Stack.Screen
-        name="AppLockSettingsScreen"
-        component={AppLockSettingsScreen}
+        name="ProjectsScreen"
+        component={ProjectsScreen}
         options={{ animation: 'slide_from_right' }}
       />
       <Stack.Screen
-        name="DataBackupScreen"
-        component={DataBackupScreen}
+        name="JournalScreen"
+        component={JournalScreen}
         options={{ animation: 'slide_from_right' }}
       />
       <Stack.Screen
-        name="WeeklyReviewScreen"
-        component={WeeklyReviewScreen}
+        name="AnalyticsScreen"
+        component={AnalyticsScreen}
         options={{ animation: 'slide_from_right' }}
       />
       <Stack.Screen
-        name="SkillsScreen"
-        component={SkillsScreen}
+        name="ReportsScreen"
+        component={ReportsScreen}
         options={{ animation: 'slide_from_right' }}
       />
       <Stack.Screen
-        name="Ideas"
-        component={IdeasScreen}
+        name="CoachScreen"
+        component={CoachScreen}
         options={{ animation: 'slide_from_right' }}
       />
+      <Stack.Screen
+        name="SettingsScreen"
+        component={SettingsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+
+      {/* Settings Sub-screens */}
       <Stack.Screen
         name="AppearanceSettingsScreen"
         component={AppearanceSettingsScreen}
@@ -106,6 +111,16 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen
         name="GeneralPreferencesScreen"
         component={GeneralPreferencesScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="AppLockSettingsScreen"
+        component={AppLockSettingsScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="DataBackupScreen"
+        component={DataBackupScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>

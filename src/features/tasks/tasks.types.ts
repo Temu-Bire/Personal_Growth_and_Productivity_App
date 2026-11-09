@@ -1,11 +1,19 @@
+export type TaskPriority = 'low' | 'medium' | 'high';
+export type TaskStatus = 'pending' | 'completed' | 'overdue';
+
 export interface Task {
   id: string;
   title: string;
+  notes?: string | null;
   date: string;
   start_time: string | null;
   end_time: string | null;
   category: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: TaskPriority;
+  goal_id?: string | null;
+  goal_title?: string | null;
+  estimated_minutes: number;
+  actual_minutes?: number | null;
   reminder_time: string | null;
   repeat: 'none' | 'daily' | 'weekly';
   is_completed: number;
@@ -16,5 +24,18 @@ export interface Task {
   deleted_at: string | null;
 }
 
-export type CreateTaskDTO = Omit<Task, 'id' | 'is_completed' | 'completed_at' | 'created_at' | 'updated_at' | 'deleted_at'>;
-
+export interface CreateTaskDTO {
+  title: string;
+  notes?: string | null;
+  date: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  category?: string;
+  priority?: TaskPriority;
+  goal_id?: string | null;
+  estimated_minutes?: number;
+  actual_minutes?: number | null;
+  reminder_time?: string | null;
+  repeat?: 'none' | 'daily' | 'weekly';
+  is_priority?: number;
+}

@@ -1,7 +1,7 @@
 export const DEFAULT_SETTINGS = {
-  themeMode: 'system' as 'light' | 'dark' | 'system',
-  userName: 'Temesgen',
-  userFocus: 'Study',
+  themeMode: 'dark' as 'light' | 'dark' | 'system',
+  userName: 'Temesgen Birhenu',
+  userFocus: 'Personal Growth',
   appLockEnabled: false,
   appLockPin: '',
   useBiometrics: false,
@@ -9,11 +9,10 @@ export const DEFAULT_SETTINGS = {
   lockOnMinimize: true,
   hideContentInSwitcher: true,
   dailyReminderEnabled: true,
-  dailyReminderTime: '08:30',
+  dailyReminderTime: '08:00 AM',
   pomodoroWorkMinutes: 25,
   pomodoroShortBreakMinutes: 5,
   pomodoroLongBreakMinutes: 15,
 };
 
-export const FOCUS_CATEGORIES = ['Study', 'Habits', 'Work', 'Trading'] as const;
-
+export const FOCUS_CATEGORIES = ['Health', 'Career', 'Finance', 'Learning', 'Faith', 'Personal'] as const;
