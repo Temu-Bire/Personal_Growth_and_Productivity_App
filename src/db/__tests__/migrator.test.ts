@@ -147,4 +147,12 @@ describe('Database Migrator', () => {
       expect(migErr.fromVersion).toBe(1);
     }
   });
+
+  it('runs all production migrations including v5 Dayvane schema on mock database', async () => {
+    const { ALL_MIGRATIONS } = await import('../migrations');
+    expect(ALL_MIGRATIONS.length).toBeGreaterThanOrEqual(5);
+    const v5 = ALL_MIGRATIONS.find((m) => m.version === 5);
+    expect(v5).toBeDefined();
+    expect(v5?.description).toContain('Dayvane');
+  });
 });

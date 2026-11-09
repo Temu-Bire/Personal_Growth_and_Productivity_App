@@ -264,5 +264,64 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   value_json TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS categories (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#10B981',
+  icon TEXT NOT NULL DEFAULT 'bookmark-outline',
+  module TEXT NOT NULL DEFAULT 'all',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_categories_module ON categories(module);
+
+CREATE TABLE IF NOT EXISTS milestones (
+  id TEXT PRIMARY KEY NOT NULL,
+  goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  due_date TEXT,
+  is_completed INTEGER NOT NULL DEFAULT 0,
+  completed_at TEXT,
+  order_index INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_milestones_goal ON milestones(goal_id);
+
+CREATE TABLE IF NOT EXISTS habit_completions (
+  id TEXT PRIMARY KEY NOT NULL,
+  habit_id TEXT NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 1,
+  notes TEXT,
+  completed_at TEXT NOT NULL,
+  UNIQUE(habit_id, date)
+);
+CREATE INDEX IF NOT EXISTS idx_habit_completions_date ON habit_completions(date);
+CREATE INDEX IF NOT EXISTS idx_habit_completions_habit ON habit_completions(habit_id);
+
+CREATE TABLE IF NOT EXISTS daily_summaries (
+  date TEXT PRIMARY KEY NOT NULL,
+  productivity_score INTEGER NOT NULL DEFAULT 0,
+  tasks_total INTEGER NOT NULL DEFAULT 0,
+  tasks_completed INTEGER NOT NULL DEFAULT 0,
+  habits_total INTEGER NOT NULL DEFAULT 0,
+  habits_completed INTEGER NOT NULL DEFAULT 0,
+  journal_logged INTEGER NOT NULL DEFAULT 0,
+  computed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS coach_insights (
+  id TEXT PRIMARY KEY NOT NULL,
+  date TEXT NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  priority TEXT NOT NULL DEFAULT 'medium',
+  action_route TEXT,
+  is_dismissed INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_coach_insights_date ON coach_insights(date);
 `;
 
