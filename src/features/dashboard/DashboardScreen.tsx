@@ -87,7 +87,7 @@ export const DashboardScreen: React.FC = () => {
     setOverdueTasks(overdue);
 
     // 8. Upcoming goals
-    const allGoals = GoalsRepository.getAllWithProgress(0);
+    const allGoals = GoalsRepository.getAllWithProgress({ status: 'active' });
     setUpcomingGoals(allGoals.slice(0, 3));
   }, [todayStr]);
 

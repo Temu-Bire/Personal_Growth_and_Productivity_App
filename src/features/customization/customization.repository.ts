@@ -14,29 +14,25 @@ import {
 
 export const DEFAULT_SIDEBAR_ITEMS: SidebarNavItem[] = [
   { id: 'dashboard', routeName: 'DashboardScreen', label: 'Dashboard', icon: 'grid-outline', isHidden: false, isSystem: true, order: 0, category: 'Core' },
-  { id: 'goals', routeName: 'GoalsScreen', label: 'My Goals', icon: 'flag-outline', isHidden: false, isSystem: false, order: 1, category: 'Planning' },
-  { id: 'tasks', routeName: 'TasksScreen', label: 'Tasks & Schedule', icon: 'calendar-outline', isHidden: false, isSystem: false, order: 2, category: 'Planning' },
-  { id: 'ideas', routeName: 'IdeasScreen', label: 'Ideas', icon: 'bulb-outline', isHidden: false, isSystem: false, order: 3, category: 'Productivity' },
-  { id: 'habits', routeName: 'HabitsScreen', label: 'Habits', icon: 'flash-outline', isHidden: false, isSystem: false, order: 4, category: 'Productivity' },
-  { id: 'study', routeName: 'StudyScreen', label: 'Study Planner', icon: 'school-outline', isHidden: false, isSystem: false, order: 5, category: 'Growth' },
-  { id: 'projects', routeName: 'ProjectsScreen', label: 'Projects', icon: 'folder-open-outline', isHidden: false, isSystem: false, order: 6, category: 'Productivity' },
-  { id: 'journal', routeName: 'JournalScreen', label: 'Journal', icon: 'book-outline', isHidden: false, isSystem: false, order: 7, category: 'Growth' },
-  { id: 'trading', routeName: 'TradingScreen', label: 'Trading Journal', icon: 'trending-up-outline', isHidden: false, isSystem: false, order: 8, category: 'Finance' },
-  { id: 'analytics', routeName: 'AnalyticsScreen', label: 'Analytics', icon: 'pie-chart-outline', isHidden: false, isSystem: false, order: 9, category: 'Core' },
-  { id: 'settings', routeName: 'SettingsScreen', label: 'Settings', icon: 'settings-outline', isHidden: false, isSystem: true, order: 10, category: 'System' },
-  { id: 'help', routeName: 'HelpScreen', label: 'Help & Support', icon: 'help-circle-outline', isHidden: false, isSystem: true, order: 11, category: 'System' },
+  { id: 'planner', routeName: 'PlannerScreen', label: 'Daily Planner', icon: 'calendar-outline', isHidden: false, isSystem: false, order: 1, category: 'Planning' },
+  { id: 'habits', routeName: 'HabitsScreen', label: 'Habit Tracker', icon: 'flash-outline', isHidden: false, isSystem: false, order: 2, category: 'Productivity' },
+  { id: 'tasks', routeName: 'TasksScreen', label: 'Task Management', icon: 'checkbox-outline', isHidden: false, isSystem: false, order: 3, category: 'Planning' },
+  { id: 'goals', routeName: 'GoalsScreen', label: 'Goal Management', icon: 'flag-outline', isHidden: false, isSystem: false, order: 4, category: 'Planning' },
+  { id: 'journal', routeName: 'JournalScreen', label: 'Daily Journal', icon: 'book-outline', isHidden: false, isSystem: false, order: 5, category: 'Growth' },
+  { id: 'analytics', routeName: 'AnalyticsScreen', label: 'Analytics & Trends', icon: 'pie-chart-outline', isHidden: false, isSystem: false, order: 6, category: 'Growth' },
+  { id: 'coach', routeName: 'CoachScreen', label: 'AI Life Coach', icon: 'sparkles-outline', isHidden: false, isSystem: false, order: 7, category: 'Intelligence' },
+  { id: 'settings', routeName: 'SettingsScreen', label: 'Settings', icon: 'settings-outline', isHidden: false, isSystem: true, order: 8, category: 'System' },
 ];
 
 export const DEFAULT_DASHBOARD_WIDGETS: DashboardWidgetConfig[] = [
-  { id: 'w_focus_ring', type: 'focus_ring', label: "Today's Focus & Momentum", isEnabled: true, order: 0, size: 'full' },
-  { id: 'w_quick_actions', type: 'quick_actions', label: 'Quick Actions', isEnabled: true, order: 1, size: 'full' },
-  { id: 'w_priorities', type: 'priorities', label: "Today's Priorities", isEnabled: true, order: 2, size: 'full' },
-  { id: 'w_current_goal', type: 'current_goal', label: 'Active Goal Progress', isEnabled: true, order: 3, size: 'full' },
-  { id: 'w_current_project', type: 'current_project', label: 'Current Project', isEnabled: true, order: 4, size: 'full' },
-  { id: 'w_habits', type: 'habits', label: 'Daily Habit Streaks', isEnabled: true, order: 5, size: 'full' },
-  { id: 'w_study_plan', type: 'study_plan', label: 'Study Curriculum', isEnabled: true, order: 6, size: 'full' },
-  { id: 'w_journal', type: 'journal', label: 'Latest Journal Reflection', isEnabled: true, order: 7, size: 'full' },
-  { id: 'w_overdue', type: 'overdue_items', label: 'Overdue & Urgent Tasks', isEnabled: true, order: 8, size: 'full' },
+  { id: 'w_focus_ring', type: 'focus_ring', label: "Daily Productivity Score", isEnabled: true, order: 0, size: 'full' },
+  { id: 'w_quick_actions', type: 'quick_actions', label: 'Quick Add Actions', isEnabled: true, order: 1, size: 'full' },
+  { id: 'w_priorities', type: 'priorities', label: "Today's Schedule & Tasks", isEnabled: true, order: 2, size: 'full' },
+  { id: 'w_habits', type: 'habits', label: 'Today\'s Habits & Current Streaks', isEnabled: true, order: 3, size: 'full' },
+  { id: 'w_current_goal', type: 'current_goal', label: 'Active Goal Milestones', isEnabled: true, order: 4, size: 'full' },
+  { id: 'w_study_plan', type: 'study_plan', label: 'Offline AI Coach Recommendation', isEnabled: true, order: 5, size: 'full' },
+  { id: 'w_journal', type: 'journal', label: 'Daily Reflection & Ratings', isEnabled: true, order: 6, size: 'full' },
+  { id: 'w_overdue', type: 'overdue_items', label: 'Upcoming Deadlines & Warnings', isEnabled: true, order: 7, size: 'full' },
 ];
 
 export const DEFAULT_INITIAL_CATEGORIES: { entity_type: string; name: string; color: string; icon: string }[] = [

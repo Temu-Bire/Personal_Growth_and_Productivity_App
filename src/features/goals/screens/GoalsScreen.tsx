@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -13,11 +12,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '../../../components/layout/Screen';
 import { Card } from '../../../components/ui/Card';
 import { ProgressBar } from '../../../components/ui/ProgressBar';
-import { SegmentedTabs } from '../../../components/ui/SegmentedTabs';
 import { BottomSheetModal } from '../../../components/ui/BottomSheetModal';
 import { Button } from '../../../components/ui/Button';
 import { Checkbox } from '../../../components/ui/Checkbox';
-import { Chip } from '../../../components/ui/Chip';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useTheme } from '../../../hooks/useTheme';
 import { useCustomizationStore } from '../../../store/useCustomizationStore';
@@ -26,52 +23,85 @@ import { ViewModeSwitcher } from '../../customization/components/ViewModeSwitche
 import { CustomFieldsSection } from '../../customization/components/CustomFieldsSection';
 import { CustomFieldsBadgeRow } from '../../customization/components/CustomFieldsBadgeRow';
 import { sortItemsByLayout } from '../../customization/layout.utils';
-import { GoalsRepository, Goal, GoalMilestone } from '../goals.repository';
+import {
+  FormInput,
+  FormTextArea,
+  FormPriorityPicker,
+  FormSelect,
+  Priority,
+} from '../../../components/forms';
+import {
+  GoalsRepository,
+  Goal,
+  Milestone,
+  GoalTermType,
+  GoalStatus,
+} from '../goals.repository';
 import {
   GOAL_CATEGORIES,
   GOAL_CATEGORY_CONFIG,
-  getGoalCategoryConfig,
 } from '../goals.constants';
+
+const TERM_OPTIONS = [
+  { label: 'Short-Term Goal (< 6 months)', value: 'short_term', icon: 'flash-outline' as const },
+  { label: 'Long-Term Goal (1+ year)', value: 'long_term', icon: 'ribbon-outline' as const },
+];
 
 export const GoalsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { colors, typography, radius } = useTheme();
   const pageLayout = useCustomizationStore((state) => state.pageLayouts['goals']);
 
-  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
+  const [termFilter, setTermFilter] = useState<'all' | 'short_term' | 'long_term'>('all');
+  const [statusFilter, setStatusFilter] = useState<GoalStatus | 'all'>('active');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [goals, setGoals] = useState<Goal[]>([]);
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
-  const [milestonesMap, setMilestonesMap] = useState<Record<string, GoalMilestone[]>>({});
+  const [milestonesMap, setMilestonesMap] = useState<Record<string, Milestone[]>>({});
   const [dynamicCategories, setDynamicCategories] = useState<{ name: string; color: string; icon: string }[]>([]);
 
-  // Add Modal State
+  // Add Milestone inline input state
+  const [newMilestoneText, setNewMilestoneText] = useState('');
+  const [addingMilestoneGoalId, setAddingMilestoneGoalId] = useState<string | null>(null);
+
+  // Add Goal Modal State
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('2026-12-31');
-  const [category, setCategory] = useState<string>('Career');
+  const [category, setCategory] = useState<string>('Health');
+  const [termType, setTermType] = useState<GoalTermType>('short_term');
+  const [priority, setPriority] = useState<Priority>('medium');
   const [initialMilestones, setInitialMilestones] = useState('');
   const [addCustomValues, setAddCustomValues] = useState<Record<string, any>>({});
 
-  // Edit Modal State
+  // Edit Goal Modal State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
-  const [editCategory, setEditCategory] = useState<string>('Career');
+  const [editCategory, setEditCategory] = useState<string>('Health');
+  const [editTermType, setEditTermType] = useState<GoalTermType>('short_term');
+  const [editPriority, setEditPriority] = useState<Priority>('medium');
+  const [editStatus, setEditStatus] = useState<GoalStatus>('active');
   const [editCustomValues, setEditCustomValues] = useState<Record<string, any>>({});
 
   const loadGoals = useCallback(() => {
-    const list = GoalsRepository.getAllWithProgress(activeTab === 'completed' ? 1 : 0);
+    const list = GoalsRepository.getAllWithProgress({
+      status: statusFilter === 'all' ? undefined : statusFilter,
+      termType: termFilter === 'all' ? undefined : termFilter,
+      category: selectedCategory === 'All' ? undefined : selectedCategory,
+    });
     setGoals(list);
 
-    const map: Record<string, GoalMilestone[]> = {};
+    const map: Record<string, Milestone[]> = {};
     list.forEach((g) => {
       map[g.id] = GoalsRepository.getMilestones(g.id);
     });
     setMilestonesMap(map);
 
-    // Load custom categories for Goals
+    // Dynamic Categories
     const customCats = CustomizationRepository.getCategories('goals');
     const mergedCats: { name: string; color: string; icon: string }[] = GOAL_CATEGORIES.map((cat) => ({
       name: cat,
@@ -89,7 +119,7 @@ export const GoalsScreen: React.FC = () => {
       }
     });
     setDynamicCategories(mergedCats);
-  }, [activeTab]);
+  }, [statusFilter, termFilter, selectedCategory]);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,34 +127,33 @@ export const GoalsScreen: React.FC = () => {
     }, [loadGoals])
   );
 
-  // Filtered & sorted goals
-  const filteredGoals = useMemo(() => {
-    let list = goals;
-    if (selectedCategory !== 'All') {
-      list = goals.filter(
-        (g) => (g.category || 'Others').toLowerCase() === selectedCategory.toLowerCase()
-      );
-    }
-    return sortItemsByLayout(list, pageLayout);
-  }, [goals, selectedCategory, pageLayout]);
+  const sortedGoals = useMemo(() => {
+    return sortItemsByLayout(goals, pageLayout);
+  }, [goals, pageLayout]);
 
   const viewMode = pageLayout?.viewMode || 'card';
-  const visibleFields = pageLayout?.visibleFields || [
-    'show_dates',
-    'show_categories',
-    'show_progress',
-    'show_notes',
-    'show_status',
-  ];
 
   const handleToggleMilestone = (milestoneId: string) => {
     GoalsRepository.toggleMilestone(milestoneId);
     loadGoals();
   };
 
+  const handleAddMilestoneInline = (goalId: string) => {
+    if (!newMilestoneText.trim()) return;
+    GoalsRepository.addMilestone(goalId, newMilestoneText.trim());
+    setNewMilestoneText('');
+    setAddingMilestoneGoalId(null);
+    loadGoals();
+  };
+
+  const handleDeleteMilestone = (milestoneId: string) => {
+    GoalsRepository.deleteMilestone(milestoneId);
+    loadGoals();
+  };
+
   const handleCreateGoal = () => {
     if (!title.trim()) {
-      Alert.alert('Required', 'Please enter goal title.');
+      Alert.alert('Required', 'Please enter a goal title.');
       return;
     }
 
@@ -135,8 +164,11 @@ export const GoalsScreen: React.FC = () => {
 
     const created = GoalsRepository.createGoal({
       title: title.trim(),
+      description: description.trim(),
       dueDate,
       category,
+      termType,
+      priority,
       milestones: milestonesList,
     });
 
@@ -145,8 +177,11 @@ export const GoalsScreen: React.FC = () => {
     }
 
     setTitle('');
+    setDescription('');
     setInitialMilestones('');
-    setCategory('Career');
+    setCategory('Health');
+    setTermType('short_term');
+    setPriority('medium');
     setAddCustomValues({});
     setIsAddOpen(false);
     loadGoals();
@@ -155,8 +190,12 @@ export const GoalsScreen: React.FC = () => {
   const handleOpenEdit = (goal: Goal) => {
     setEditingGoal(goal);
     setEditTitle(goal.title);
-    setEditDueDate(goal.due_date);
-    setEditCategory(goal.category || 'Career');
+    setEditDescription(goal.description || '');
+    setEditDueDate(goal.target_date || goal.due_date);
+    setEditCategory(goal.category || 'Health');
+    setEditTermType(goal.term_type || 'short_term');
+    setEditPriority(goal.priority || 'medium');
+    setEditStatus(goal.status || 'active');
     const existingVals = CustomizationRepository.getFieldValues('goals', goal.id);
     setEditCustomValues(existingVals);
     setIsEditOpen(true);
@@ -170,8 +209,12 @@ export const GoalsScreen: React.FC = () => {
 
     GoalsRepository.updateGoal(editingGoal.id, {
       title: editTitle,
+      description: editDescription,
       dueDate: editDueDate,
       category: editCategory,
+      termType: editTermType,
+      priority: editPriority,
+      status: editStatus,
     });
 
     if (Object.keys(editCustomValues).length > 0) {
@@ -181,6 +224,11 @@ export const GoalsScreen: React.FC = () => {
     setIsEditOpen(false);
     setEditingGoal(null);
     setEditCustomValues({});
+    loadGoals();
+  };
+
+  const handleStatusChange = (goal: Goal, newStatus: GoalStatus) => {
+    GoalsRepository.setGoalStatus(goal.id, newStatus);
     loadGoals();
   };
 
@@ -206,7 +254,12 @@ export const GoalsScreen: React.FC = () => {
     setExpandedGoalId(expandedGoalId === goalId ? null : goalId);
   };
 
-  const filterCategoryOptions = ['All', ...dynamicCategories.map((c) => c.name)];
+  const categorySelectOptions = dynamicCategories.map((c) => ({
+    label: c.name,
+    value: c.name,
+    icon: c.icon as any,
+    color: c.color,
+  }));
 
   return (
     <Screen backgroundColor={colors.background}>
@@ -224,18 +277,16 @@ export const GoalsScreen: React.FC = () => {
               <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, typography.h1, { color: colors.textPrimary, marginLeft: 12 }]} numberOfLines={1}>
-              My Goals
+              Goal Management
             </Text>
           </View>
 
           <View style={styles.headerRight}>
-            {/* View Mode Switcher */}
             <ViewModeSwitcher pageKey="goals" />
-
-            {/* Add Goal Button */}
             <TouchableOpacity
+              activeOpacity={0.85}
               onPress={() => setIsAddOpen(true)}
-              style={[styles.addBtn, { backgroundColor: colors.accentMint, marginLeft: 8 }]}
+              style={[styles.addBtn, { backgroundColor: colors.accentMint }]}
               accessibilityRole="button"
               accessibilityLabel="Add Goal"
             >
@@ -244,300 +295,337 @@ export const GoalsScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Active vs Completed Tabs */}
-        <SegmentedTabs
-          tabs={[
-            { key: 'active', label: 'Active' },
-            { key: 'completed', label: 'Completed' },
-          ]}
-          activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab)}
-          style={{ marginBottom: 12 }}
-        />
-
-        {/* Dynamic Category Filter Horizontal Scroll */}
-        <View style={styles.filterWrapper}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScroll}
-          >
-            {filterCategoryOptions.map((cat) => {
-              const isSelected = selectedCategory === cat;
+        {/* Term & Status Filter Chips */}
+        <View style={styles.filterRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+            {[
+              { key: 'active', label: 'Active Goals' },
+              { key: 'completed', label: 'Completed' },
+              { key: 'paused', label: 'Paused' },
+              { key: 'archived', label: 'Archived' },
+              { key: 'all', label: 'All Goals' },
+            ].map((tab) => {
+              const isSelected = statusFilter === tab.key;
               return (
-                <Chip
-                  key={cat}
-                  label={cat}
-                  selected={isSelected}
-                  onPress={() => setSelectedCategory(cat)}
-                  style={styles.filterChip}
-                />
+                <TouchableOpacity
+                  key={tab.key}
+                  onPress={() => setStatusFilter(tab.key as any)}
+                  style={[
+                    styles.filterChip,
+                    {
+                      backgroundColor: isSelected ? colors.primary : colors.inputBg,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                      borderRadius: radius.round,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.captionBold,
+                      { color: isSelected ? '#FFFFFF' : colors.textSecondary },
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+
+            <View style={[styles.filterDivider, { backgroundColor: colors.border }]} />
+
+            {[
+              { key: 'all', label: 'All Terms' },
+              { key: 'short_term', label: 'Short-Term' },
+              { key: 'long_term', label: 'Long-Term' },
+            ].map((term) => {
+              const isSelected = termFilter === term.key;
+              return (
+                <TouchableOpacity
+                  key={term.key}
+                  onPress={() => setTermFilter(term.key as any)}
+                  style={[
+                    styles.filterChip,
+                    {
+                      backgroundColor: isSelected ? colors.accentMint : colors.inputBg,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                      borderRadius: radius.round,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.captionBold,
+                      { color: isSelected ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    {term.label}
+                  </Text>
+                </TouchableOpacity>
               );
             })}
           </ScrollView>
         </View>
 
-        {/* Goals List - Rendered by View Mode */}
-        <ScrollView
-          style={styles.list}
-          contentContainerStyle={[
-            styles.scrollListPadding,
-            viewMode === 'grid' && styles.gridContainer,
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {filteredGoals.length === 0 ? (
+        {/* Category Horizontal Filter Bar */}
+        <View style={{ marginBottom: 12 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 6 }}>
+            {['All', ...dynamicCategories.map((c) => c.name)].map((catName) => {
+              const isSelected = selectedCategory === catName;
+              return (
+                <TouchableOpacity
+                  key={catName}
+                  onPress={() => setSelectedCategory(catName)}
+                  style={[
+                    styles.catChip,
+                    {
+                      borderColor: isSelected ? colors.primary : colors.border,
+                      backgroundColor: isSelected ? `${colors.primary}18` : colors.surface,
+                      borderRadius: radius.sm,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      typography.captionBold,
+                      { color: isSelected ? colors.primary : colors.textMuted },
+                    ]}
+                  >
+                    {catName}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Goals Feed */}
+        <ScrollView style={styles.list} contentContainerStyle={styles.scrollListPadding} showsVerticalScrollIndicator={false}>
+          {sortedGoals.length === 0 ? (
             <EmptyState
               icon="flag-outline"
-              title={
-                selectedCategory !== 'All'
-                  ? `No ${selectedCategory} goals`
-                  : activeTab === 'active'
-                  ? 'No active goals'
-                  : 'No completed goals'
-              }
-              description={
-                selectedCategory !== 'All'
-                  ? `There are no ${selectedCategory.toLowerCase()} goals in ${activeTab}. Tap '+' to create one.`
-                  : activeTab === 'active'
-                  ? 'Set meaningful milestones and reach your ambitions.'
-                  : 'Completed goals will appear here once marked done.'
-              }
-              actionTitle={activeTab === 'active' ? '+ Add New Goal' : undefined}
-              onAction={activeTab === 'active' ? () => setIsAddOpen(true) : undefined}
+              title="No goals found"
+              description="Define short-term and long-term milestones to direct your personal growth."
+              actionTitle="+ Create First Goal"
+              onAction={() => setIsAddOpen(true)}
             />
           ) : (
-            filteredGoals.map((goal) => {
+            sortedGoals.map((goal) => {
               const isExpanded = expandedGoalId === goal.id;
               const milestones = milestonesMap[goal.id] || [];
-              const catCfg = getGoalCategoryConfig(goal.category);
+              const progress = goal.progressPercent ?? 0;
+              const isCompleted = goal.status === 'completed';
+              const isPaused = goal.status === 'paused';
 
-              // 1. Compact View Mode
-              if (viewMode === 'compact') {
-                return (
-                  <Card key={goal.id} style={styles.compactGoalCard}>
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => toggleExpand(goal.id)}
-                      style={styles.compactRow}
-                    >
-                      <View style={{ flex: 1, marginRight: 8 }}>
-                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
-                          {goal.title}
-                        </Text>
-                        {visibleFields.includes('show_dates') && (
-                          <Text style={[typography.caption, { color: colors.textSecondary }]}>
-                            Due: {goal.due_date}
-                          </Text>
-                        )}
-                      </View>
-                      {visibleFields.includes('show_categories') && (
-                        <View style={[styles.compactBadge, { backgroundColor: catCfg.bg }]}>
-                          <Text style={[typography.captionBold, { color: catCfg.color, fontSize: 10 }]}>
+              return (
+                <Card key={goal.id} style={styles.goalCard}>
+                  {/* Goal Header */}
+                  <View style={styles.goalTopRow}>
+                    <View style={{ flex: 1, marginRight: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <View style={[styles.badge, { backgroundColor: colors.accentMint }]}>
+                          <Text style={[typography.captionBold, { color: colors.primary, fontSize: 10 }]}>
                             {goal.category}
                           </Text>
                         </View>
-                      )}
-                      {visibleFields.includes('show_progress') && (
-                        <Text style={[typography.captionBold, { color: colors.primary, marginLeft: 8 }]}>
-                          {goal.progressPercent}%
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  </Card>
-                );
-              }
-
-              // 2. List View Mode
-              if (viewMode === 'list') {
-                return (
-                  <Card key={goal.id} style={styles.listGoalCard}>
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => toggleExpand(goal.id)}
-                      style={styles.listRow}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={1}>
-                          {goal.title}
-                        </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                          {visibleFields.includes('show_dates') && (
-                            <Text style={[typography.caption, { color: colors.textSecondary, marginRight: 8 }]}>
-                              Due: {goal.due_date}
-                            </Text>
-                          )}
-                          {visibleFields.includes('show_categories') && (
-                            <Text style={[typography.caption, { color: catCfg.color }]}>
-                              • {goal.category}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                      {visibleFields.includes('show_progress') && (
-                        <Text style={[typography.h3, { color: colors.primary, fontWeight: '800' }]}>
-                          {goal.progressPercent}%
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  </Card>
-                );
-              }
-
-              // 3. Grid View Mode
-              if (viewMode === 'grid') {
-                return (
-                  <Card key={goal.id} style={styles.gridGoalCard}>
-                    <TouchableOpacity activeOpacity={0.7} onPress={() => toggleExpand(goal.id)}>
-                      {visibleFields.includes('show_categories') && (
-                        <View style={[styles.catBadge, { backgroundColor: catCfg.bg, alignSelf: 'flex-start', marginBottom: 6 }]}>
-                          <Text style={[typography.captionBold, { color: catCfg.color, fontSize: 10 }]}>
-                            {catCfg.name}
+                        <View
+                          style={[
+                            styles.badge,
+                            {
+                              backgroundColor:
+                                goal.priority === 'high'
+                                  ? '#FEE2E2'
+                                  : goal.priority === 'medium'
+                                  ? '#FEF3C7'
+                                  : '#D1FAE5',
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              typography.captionBold,
+                              {
+                                color:
+                                  goal.priority === 'high'
+                                    ? '#EF4444'
+                                    : goal.priority === 'medium'
+                                    ? '#D97706'
+                                    : '#10B981',
+                                fontSize: 10,
+                              },
+                            ]}
+                          >
+                            {goal.priority.toUpperCase()}
                           </Text>
                         </View>
-                      )}
-                      <Text style={[typography.bodyBold, { color: colors.textPrimary }]} numberOfLines={2}>
+                        <View style={[styles.badge, { backgroundColor: colors.inputBg }]}>
+                          <Text style={[typography.captionBold, { color: colors.textMuted, fontSize: 10 }]}>
+                            {goal.term_type === 'short_term' ? 'SHORT TERM' : 'LONG TERM'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text
+                        style={[
+                          typography.h3,
+                          {
+                            color: colors.textPrimary,
+                            textDecorationLine: isCompleted ? 'line-through' : 'none',
+                          },
+                        ]}
+                      >
                         {goal.title}
                       </Text>
-                      {visibleFields.includes('show_progress') && (
-                        <ProgressBar
-                          progress={goal.progressPercent || 0}
-                          height={4}
-                          color={colors.primary}
-                          style={{ marginVertical: 8 }}
-                        />
-                      )}
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={[typography.captionBold, { color: colors.primary }]}>
-                          {goal.progressPercent}%
-                        </Text>
-                        {visibleFields.includes('show_dates') && (
-                          <Text style={[typography.caption, { color: colors.textMuted, fontSize: 10 }]}>
-                            {goal.due_date}
-                          </Text>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  </Card>
-                );
-              }
 
-              // 4. Standard Card View (Default)
-              return (
-                <Card key={goal.id} style={styles.goalCard}>
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => toggleExpand(goal.id)}
-                  >
-                    <View style={styles.goalHeader}>
-                      <View style={{ flex: 1, marginRight: 10 }}>
-                        {/* Category Badge */}
-                        {visibleFields.includes('show_categories') && (
-                          <View style={styles.badgeRow}>
-                            <View style={[styles.catBadge, { backgroundColor: catCfg.bg }]}>
-                              <Ionicons
-                                name={catCfg.icon}
-                                size={12}
-                                color={catCfg.color}
-                                style={{ marginRight: 4 }}
-                              />
-                              <Text style={[typography.captionBold, { color: catCfg.color, fontSize: 11 }]}>
-                                {catCfg.name}
-                              </Text>
-                            </View>
-                          </View>
-                        )}
-
-                        <Text style={[styles.goalTitle, typography.h2, { color: colors.textPrimary }]}>
-                          {goal.title}
+                      {goal.description ? (
+                        <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 2 }]} numberOfLines={2}>
+                          {goal.description}
                         </Text>
-                        {visibleFields.includes('show_dates') && (
-                          <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
-                            Due: {goal.due_date}
-                          </Text>
-                        )}
-                      </View>
-                      {visibleFields.includes('show_progress') && (
-                        <Text style={[typography.h2, { color: colors.primary, fontWeight: '800' }]}>
-                          {goal.progressPercent}%
-                        </Text>
-                      )}
+                      ) : null}
                     </View>
 
-                    {visibleFields.includes('show_progress') && (
-                      <ProgressBar
-                        progress={goal.progressPercent || 0}
-                        height={6}
-                        color={colors.primary}
-                        style={{ marginTop: 12, marginBottom: 8 }}
-                      />
-                    )}
-
-                    {/* Custom Fields Badges */}
-                    <CustomFieldsBadgeRow entityType="goals" entityId={goal.id} />
-
-                    <View style={styles.goalFooter}>
-                      <Text style={[typography.caption, { color: colors.textMuted }]}>
-                        {goal.completedMilestonesCount} of {goal.milestonesCount} milestones completed
+                    {/* Progress Percentage Badge */}
+                    <View style={styles.progressBadgeCol}>
+                      <Text style={[typography.h2, { color: isCompleted ? colors.primary : colors.textPrimary, fontWeight: '800' }]}>
+                        {progress}%
                       </Text>
-                      <View style={styles.headerActions}>
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleOpenEdit(goal);
-                          }}
-                          style={styles.actionIconBtn}
-                          accessibilityLabel="Edit Goal"
-                        >
-                          <Ionicons name="pencil-outline" size={17} color={colors.primary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            handleDeleteGoal(goal);
-                          }}
-                          style={styles.actionIconBtn}
-                          accessibilityLabel="Delete Goal"
-                        >
-                          <Ionicons name="trash-outline" size={17} color={colors.danger} />
-                        </TouchableOpacity>
+                      <Text style={[typography.caption, { color: colors.textMuted }]}>
+                        {goal.completedMilestonesCount || 0}/{goal.milestonesCount || 0} checks
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Progress Bar */}
+                  <ProgressBar
+                    progress={progress}
+                    color={isCompleted ? colors.primary : colors.primaryLight}
+                    style={{ marginTop: 12, marginBottom: 8 }}
+                  />
+
+                  {/* Custom fields row */}
+                  <CustomFieldsBadgeRow entityType="goals" entityId={goal.id} />
+
+                  {/* Bottom Action Footer */}
+                  <View style={styles.goalBottomBar}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons name="calendar-outline" size={14} color={colors.textMuted} style={{ marginRight: 4 }} />
+                      <Text style={[typography.caption, { color: colors.textSecondary }]}>
+                        Target: {goal.target_date || goal.due_date}
+                      </Text>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {/* Pause / Resume */}
+                      <TouchableOpacity
+                        onPress={() => handleStatusChange(goal, isPaused ? 'active' : 'paused')}
+                        style={styles.actionIconBtn}
+                        accessibilityLabel="Pause or resume"
+                      >
+                        <Ionicons
+                          name={isPaused ? 'play-outline' : 'pause-outline'}
+                          size={18}
+                          color={isPaused ? colors.primary : colors.textMuted}
+                        />
+                      </TouchableOpacity>
+
+                      {/* Edit */}
+                      <TouchableOpacity
+                        onPress={() => handleOpenEdit(goal)}
+                        style={styles.actionIconBtn}
+                        accessibilityLabel="Edit goal"
+                      >
+                        <Ionicons name="pencil-outline" size={18} color={colors.textMuted} />
+                      </TouchableOpacity>
+
+                      {/* Expand Milestones Toggle */}
+                      <TouchableOpacity
+                        onPress={() => toggleExpand(goal.id)}
+                        style={[
+                          styles.expandBtn,
+                          {
+                            backgroundColor: isExpanded ? colors.accentMint : colors.inputBg,
+                            borderRadius: radius.sm,
+                          },
+                        ]}
+                      >
+                        <Text style={[typography.captionBold, { color: isExpanded ? colors.primary : colors.textSecondary }]}>
+                          Milestones ({milestones.length})
+                        </Text>
                         <Ionicons
                           name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                          size={18}
-                          color={colors.textMuted}
+                          size={14}
+                          color={isExpanded ? colors.primary : colors.textSecondary}
+                          style={{ marginLeft: 4 }}
                         />
-                      </View>
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
+                  </View>
 
-                  {/* Milestones list */}
+                  {/* Expanded Milestones Checklist */}
                   {isExpanded && (
-                    <View style={[styles.milestonesList, { borderTopColor: colors.border }]}>
+                    <View style={[styles.milestonesDrawer, { borderTopColor: colors.border }]}>
                       {milestones.length === 0 ? (
-                        <Text style={[typography.caption, { color: colors.textMuted, marginVertical: 4 }]}>
-                          No milestones added yet.
+                        <Text style={[typography.caption, { color: colors.textMuted, marginVertical: 6 }]}>
+                          No milestones added yet. Add checkpoints to track progress automatically.
                         </Text>
                       ) : (
-                        milestones.map((m) => (
-                          <View key={m.id} style={styles.milestoneItem}>
-                            <Checkbox
-                              checked={m.is_completed === 1}
-                              onToggle={() => handleToggleMilestone(m.id)}
-                            />
-                            <Text
-                              style={[
-                                styles.milestoneTitle,
-                                typography.bodyMedium,
-                                {
-                                  color: m.is_completed === 1 ? colors.textMuted : colors.textPrimary,
-                                  textDecorationLine: m.is_completed === 1 ? 'line-through' : 'none',
-                                },
-                              ]}
-                            >
-                              {m.title}
-                            </Text>
-                          </View>
-                        ))
+                        milestones.map((m) => {
+                          const mDone = m.is_completed === 1;
+                          return (
+                            <View key={m.id} style={styles.milestoneItem}>
+                              <Checkbox
+                                checked={mDone}
+                                onToggle={() => handleToggleMilestone(m.id)}
+                              />
+                              <Text
+                                style={[
+                                  styles.milestoneText,
+                                  typography.body,
+                                  {
+                                    color: mDone ? colors.textMuted : colors.textPrimary,
+                                    textDecorationLine: mDone ? 'line-through' : 'none',
+                                  },
+                                ]}
+                              >
+                                {m.title}
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => handleDeleteMilestone(m.id)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Ionicons name="trash-outline" size={15} color={colors.textMuted} />
+                              </TouchableOpacity>
+                            </View>
+                          );
+                        })
+                      )}
+
+                      {/* Inline Add Milestone */}
+                      {addingMilestoneGoalId === goal.id ? (
+                        <View style={{ marginTop: 8 }}>
+                          <FormInput
+                            label="New Milestone Checkpoint"
+                            value={newMilestoneText}
+                            onChangeText={setNewMilestoneText}
+                            placeholder="e.g. Complete chapter 4 exercises"
+                            rightIcon="checkmark-circle"
+                            onRightIconPress={() => handleAddMilestoneInline(goal.id)}
+                            onSubmitEditing={() => handleAddMilestoneInline(goal.id)}
+                            returnKeyType="done"
+                          />
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => {
+                            setAddingMilestoneGoalId(goal.id);
+                            setNewMilestoneText('');
+                          }}
+                          style={styles.addMilestoneInlineBtn}
+                        >
+                          <Ionicons name="add-circle-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                          <Text style={[typography.captionBold, { color: colors.primary }]}>
+                            + Add Milestone Checkpoint
+                          </Text>
+                        </TouchableOpacity>
                       )}
                     </View>
                   )}
@@ -547,192 +635,139 @@ export const GoalsScreen: React.FC = () => {
           )}
         </ScrollView>
 
-        {/* Add Goal Modal */}
+        {/* Add Goal Modal with Standardized Forms */}
         <BottomSheetModal
           visible={isAddOpen}
           onClose={() => setIsAddOpen(false)}
-          title="Add New Goal"
+          title="Create New Goal"
         >
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalForm}>
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Goal Title *
-            </Text>
-            <TextInput
+            <FormInput
+              label="Goal Title"
+              required
               value={title}
               onChangeText={setTitle}
-              placeholder="e.g. Master Machine Learning"
-              placeholderTextColor={colors.textMuted}
-              style={[
-                styles.modalInput,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-              ]}
+              placeholder="e.g. Run a half-marathon or launch product"
+              icon="flag-outline"
             />
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Target Date (YYYY-MM-DD)
-            </Text>
-            <TextInput
+            <FormTextArea
+              label="Description & Success Criteria"
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Why this goal matters and what completion looks like..."
+              numberOfLines={3}
+            />
+
+            <FormSelect
+              label="Goal Horizon"
+              value={termType}
+              options={TERM_OPTIONS}
+              onSelect={(val) => setTermType(val as GoalTermType)}
+            />
+
+            <FormSelect
+              label="Category"
+              value={category}
+              options={categorySelectOptions}
+              onSelect={setCategory}
+            />
+
+            <FormPriorityPicker
+              value={priority}
+              onChange={setPriority}
+            />
+
+            <FormInput
+              label="Target Due Date (YYYY-MM-DD)"
               value={dueDate}
               onChangeText={setDueDate}
-              placeholder="2026-12-31"
-              placeholderTextColor={colors.textMuted}
-              style={[
-                styles.modalInput,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-              ]}
+              placeholder="YYYY-MM-DD"
+              icon="calendar-outline"
             />
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Category
-            </Text>
-            <View style={styles.catSelectionGrid}>
-              {dynamicCategories.map((cat) => {
-                const isSelected = category === cat.name;
-                return (
-                  <TouchableOpacity
-                    key={cat.name}
-                    activeOpacity={0.7}
-                    onPress={() => setCategory(cat.name)}
-                    style={[
-                      styles.catChoiceBtn,
-                      {
-                        backgroundColor: isSelected ? cat.color : colors.inputBg,
-                        borderColor: isSelected ? cat.color : colors.border,
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={cat.icon as any}
-                      size={14}
-                      color={isSelected ? '#FFFFFF' : cat.color}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text
-                      style={[
-                        typography.captionBold,
-                        { color: isSelected ? '#FFFFFF' : colors.textPrimary },
-                      ]}
-                    >
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <FormTextArea
+              label="Initial Milestones (one per line)"
+              value={initialMilestones}
+              onChangeText={setInitialMilestones}
+              placeholder="Register for race&#10;Run 10km weekly&#10;Complete 20km long run"
+              numberOfLines={4}
+              helperText="Milestones automatically compute your goal progress percentage."
+            />
 
-            {/* Custom Fields Section */}
             <CustomFieldsSection
               entityType="goals"
               values={addCustomValues}
               onChange={(k, v) => setAddCustomValues((prev) => ({ ...prev, [k]: v }))}
             />
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary, marginTop: 10 }]}>
-              Milestones (one per line)
-            </Text>
-            <TextInput
-              value={initialMilestones}
-              onChangeText={setInitialMilestones}
-              multiline
-              numberOfLines={4}
-              placeholder="Finish online course&#10;Build 2 projects&#10;Publish case study"
-              placeholderTextColor={colors.textMuted}
-              style={[
-                styles.modalInput,
-                styles.textArea,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-              ]}
-            />
-
             <Button
-              title="Create Goal"
+              title="Save Goal"
               onPress={handleCreateGoal}
-              style={{ marginTop: 16 }}
+              style={{ marginTop: 8 }}
             />
           </ScrollView>
         </BottomSheetModal>
 
-        {/* Edit Goal Modal */}
+        {/* Edit Goal Modal with Standardized Forms */}
         <BottomSheetModal
           visible={isEditOpen}
           onClose={() => setIsEditOpen(false)}
           title="Edit Goal"
         >
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalForm}>
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Goal Title *
-            </Text>
-            <TextInput
+            <FormInput
+              label="Goal Title"
+              required
               value={editTitle}
               onChangeText={setEditTitle}
-              style={[
-                styles.modalInput,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-              ]}
+              icon="flag-outline"
             />
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Target Date (YYYY-MM-DD)
-            </Text>
-            <TextInput
+            <FormTextArea
+              label="Description"
+              value={editDescription}
+              onChangeText={setEditDescription}
+              numberOfLines={3}
+            />
+
+            <FormSelect
+              label="Goal Horizon"
+              value={editTermType}
+              options={TERM_OPTIONS}
+              onSelect={(val) => setEditTermType(val as GoalTermType)}
+            />
+
+            <FormSelect
+              label="Category"
+              value={editCategory}
+              options={categorySelectOptions}
+              onSelect={setEditCategory}
+            />
+
+            <FormPriorityPicker
+              value={editPriority}
+              onChange={setEditPriority}
+            />
+
+            <FormInput
+              label="Target Due Date (YYYY-MM-DD)"
               value={editDueDate}
               onChangeText={setEditDueDate}
-              style={[
-                styles.modalInput,
-                { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary },
-              ]}
+              icon="calendar-outline"
             />
 
-            <Text style={[styles.formLabel, typography.captionBold, { color: colors.textSecondary }]}>
-              Category
-            </Text>
-            <View style={styles.catSelectionGrid}>
-              {dynamicCategories.map((cat) => {
-                const isSelected = editCategory === cat.name;
-                return (
-                  <TouchableOpacity
-                    key={cat.name}
-                    activeOpacity={0.7}
-                    onPress={() => setEditCategory(cat.name)}
-                    style={[
-                      styles.catChoiceBtn,
-                      {
-                        backgroundColor: isSelected ? cat.color : colors.inputBg,
-                        borderColor: isSelected ? cat.color : colors.border,
-                      },
-                    ]}
-                  >
-                    <Ionicons
-                      name={cat.icon as any}
-                      size={14}
-                      color={isSelected ? '#FFFFFF' : cat.color}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text
-                      style={[
-                        typography.captionBold,
-                        { color: isSelected ? '#FFFFFF' : colors.textPrimary },
-                      ]}
-                    >
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Custom Fields Section */}
             <CustomFieldsSection
               entityType="goals"
               values={editCustomValues}
               onChange={(k, v) => setEditCustomValues((prev) => ({ ...prev, [k]: v }))}
             />
 
-            <View style={{ flexDirection: 'row', marginTop: 20, gap: 10 }}>
+            <View style={{ flexDirection: 'row', marginTop: 12, gap: 10 }}>
               <Button
-                title="Cancel"
+                title="Delete"
                 variant="ghost"
-                onPress={() => setIsEditOpen(false)}
+                onPress={() => editingGoal && handleDeleteGoal(editingGoal)}
                 style={{ flex: 1 }}
               />
               <Button
@@ -759,7 +794,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -791,142 +826,89 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  filterWrapper: {
-    marginBottom: 12,
+  filterRow: {
+    marginBottom: 10,
   },
   filterScroll: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    paddingVertical: 2,
   },
   filterChip: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 6,
+    borderWidth: 1,
+  },
+  filterDivider: {
+    width: 1,
+    height: 20,
+    marginHorizontal: 4,
+  },
+  catChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
   },
   list: {
     flex: 1,
   },
   scrollListPadding: {
-    paddingBottom: 110,
-  },
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    paddingBottom: 40,
   },
   goalCard: {
-    marginBottom: 12,
+    marginBottom: 14,
     padding: 16,
   },
-  compactGoalCard: {
-    marginBottom: 8,
-    padding: 10,
-  },
-  compactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  compactBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  listGoalCard: {
-    marginBottom: 8,
-    padding: 12,
-  },
-  listRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  gridGoalCard: {
-    width: '48%',
-    marginBottom: 12,
-    padding: 12,
-  },
-  goalHeader: {
+  goalTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
-  catBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+  progressBadgeCol: {
+    alignItems: 'flex-end',
   },
-  goalTitle: {
-    fontWeight: '700',
-  },
-  goalFooter: {
+  goalBottomBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    marginTop: 10,
   },
   actionIconBtn: {
-    padding: 4,
+    padding: 6,
   },
-  milestonesList: {
-    borderTopWidth: 1,
-    paddingTop: 12,
+  expandBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  milestonesDrawer: {
     marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
   },
   milestoneItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 4,
+    paddingVertical: 6,
   },
-  milestoneTitle: {
-    marginLeft: 10,
+  milestoneText: {
     flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
   },
-  modalForm: {
-    paddingBottom: 24,
-  },
-  formLabel: {
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  modalInput: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    marginBottom: 14,
-  },
-  catSelectionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
-    marginTop: 2,
-  },
-  catChoiceBtn: {
+  addMilestoneInlineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
+    marginTop: 4,
   },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-    paddingTop: 10,
+  modalForm: {
+    paddingBottom: 30,
   },
 });
