@@ -179,7 +179,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.profileHeader}>
-          <View style={[styles.profileIconBadge, { backgroundColor: colors.accentMint }]}>
+          <View style={[styles.profileIconBadge, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
             <Ionicons name="person" size={28} color={colors.primary} />
           </View>
           <Text style={[styles.profileTitle, typography.h1, { color: colors.textPrimary }]}>

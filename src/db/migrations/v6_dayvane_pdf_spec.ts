@@ -11,18 +11,52 @@ export const migrationV6: Migration = {
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS projects (
         id TEXT PRIMARY KEY NOT NULL,
-        name TEXT NOT NULL,
+        name TEXT,
+        title TEXT,
         description TEXT,
         category_id TEXT,
         category TEXT NOT NULL DEFAULT 'General',
         status TEXT NOT NULL DEFAULT 'active',
         check_in_rhythm TEXT NOT NULL DEFAULT 'none',
         last_check_in TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         deleted_at TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+    `);
+
+    // Ensure columns in projects table if table was created in v1
+    const prjCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(projects);');
+    const prjColNames = prjCols.map((c) => c.name);
+    if (!prjColNames.includes('name')) {
+      await db.execAsync('ALTER TABLE projects ADD COLUMN name TEXT;');
+    }
+    if (!prjColNames.includes('title')) {
+      await db.execAsync('ALTER TABLE projects ADD COLUMN title TEXT;');
+    }
+    if (!prjColNames.includes('description')) {
+      await db.execAsync('ALTER TABLE projects ADD COLUMN description TEXT;');
+    }
+    if (!prjColNames.includes('category_id')) {
+      await db.execAsync('ALTER TABLE projects ADD COLUMN category_id TEXT;');
+    }
+    if (!prjColNames.includes('category')) {
+      await db.execAsync("ALTER TABLE projects ADD COLUMN category TEXT NOT NULL DEFAULT 'General';");
+    }
+    if (!prjColNames.includes('check_in_rhythm')) {
+      await db.execAsync("ALTER TABLE projects ADD COLUMN check_in_rhythm TEXT NOT NULL DEFAULT 'none';");
+    }
+    if (!prjColNames.includes('last_check_in')) {
+      await db.execAsync('ALTER TABLE projects ADD COLUMN last_check_in TEXT;');
+    }
+    if (!prjColNames.includes('deleted_at')) {
+      await db.execAsync('ALTER TABLE projects ADD COLUMN deleted_at TEXT;');
+    }
+
+    await db.execAsync(`
+      UPDATE projects SET name = title WHERE (name IS NULL OR name = '') AND title IS NOT NULL;
+      UPDATE projects SET title = name WHERE (title IS NULL OR title = '') AND name IS NOT NULL;
     `);
 
     // 2. Add project_id to tasks if missing

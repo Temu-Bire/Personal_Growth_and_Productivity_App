@@ -61,6 +61,8 @@ export async function getDatabaseAsync(): Promise<SQLite.SQLiteDatabase> {
       // Safely apply versioned migrations
       await runMigrationsAsync(db);
 
+      ensureProjectsSchemaSync(db);
+
       dbInstance = db;
       return db;
     } catch (error: unknown) {
@@ -78,6 +80,49 @@ export async function getDatabaseAsync(): Promise<SQLite.SQLiteDatabase> {
   return initPromise;
 }
 
+function ensureProjectsSchemaSync(db: SQLite.SQLiteDatabase): void {
+  try {
+    const cols = db.getAllSync<{ name: string }>('PRAGMA table_info(projects);');
+    const colNames = cols.map((c) => c.name);
+    if (colNames.length > 0) {
+      if (!colNames.includes('name')) {
+        db.execSync('ALTER TABLE projects ADD COLUMN name TEXT;');
+        db.execSync('UPDATE projects SET name = COALESCE(title, "Untitled Project");');
+      }
+      if (!colNames.includes('title')) {
+        db.execSync('ALTER TABLE projects ADD COLUMN title TEXT;');
+        db.execSync('UPDATE projects SET title = name;');
+      }
+      if (!colNames.includes('description')) {
+        db.execSync('ALTER TABLE projects ADD COLUMN description TEXT;');
+      }
+      if (!colNames.includes('category_id')) {
+        db.execSync('ALTER TABLE projects ADD COLUMN category_id TEXT;');
+      }
+      if (!colNames.includes('deleted_at')) {
+        db.execSync('ALTER TABLE projects ADD COLUMN deleted_at TEXT;');
+      }
+      if (!colNames.includes('category')) {
+        db.execSync("ALTER TABLE projects ADD COLUMN category TEXT NOT NULL DEFAULT 'General';");
+      }
+      if (!colNames.includes('check_in_rhythm')) {
+        db.execSync("ALTER TABLE projects ADD COLUMN check_in_rhythm TEXT NOT NULL DEFAULT 'none';");
+      }
+      if (!colNames.includes('status')) {
+        db.execSync("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active';");
+      }
+    }
+
+    const taskCols = db.getAllSync<{ name: string }>('PRAGMA table_info(tasks);');
+    const taskColNames = taskCols.map((c) => c.name);
+    if (taskColNames.length > 0 && !taskColNames.includes('project_id')) {
+      db.execSync('ALTER TABLE tasks ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL;');
+    }
+  } catch {
+    // safe ignore if table doesn't exist yet
+  }
+}
+
 /**
  * Synchronous database getter for synchronous callers and backward compatibility.
  */
@@ -87,6 +132,7 @@ export function getDatabase(): SQLite.SQLiteDatabase {
       dbInstance = SQLite.openDatabaseSync(DB_NAME);
       dbInstance.execSync('PRAGMA journal_mode = WAL;');
       dbInstance.execSync('PRAGMA foreign_keys = ON;');
+      ensureProjectsSchemaSync(dbInstance);
     } catch (error: unknown) {
       throw new DatabaseError(
         `Failed to open SQLite database synchronously: ${

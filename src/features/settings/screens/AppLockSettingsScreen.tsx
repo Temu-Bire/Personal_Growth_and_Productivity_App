@@ -62,7 +62,7 @@ export const AppLockSettingsScreen: React.FC = () => {
         </View>
 
         {/* Status Banner */}
-        <Card style={[styles.statusCard, { backgroundColor: appLockEnabled ? colors.accentMint : colors.inputBg }]}>
+        <Card style={[styles.statusCard, { backgroundColor: appLockEnabled ? colors.surface : colors.inputBg, borderColor: colors.border }]}>
           <View style={styles.statusRow}>
             <View style={[styles.lockIconBox, { backgroundColor: appLockEnabled ? colors.primary : colors.textMuted }]}>
               <Ionicons name="shield-checkmark" size={24} color="#FFFFFF" />

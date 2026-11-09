@@ -30,7 +30,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
   const strokeDashoffset = circumference - (circumference * clampedProgress) / 100;
 
   const activeColor = color || colors.primary;
-  const inactiveColor = trackColor || colors.accentMint;
+  const inactiveColor = trackColor || colors.border;
 
   return (
     <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]}>

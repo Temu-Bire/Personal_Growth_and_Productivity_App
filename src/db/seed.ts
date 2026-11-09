@@ -194,9 +194,9 @@ export async function seedInitialDataAsync(database?: SQLiteDatabase): Promise<b
     for (const p of projects) {
       const pId = generateId('prj');
       await db.runAsync(
-        `INSERT INTO projects (id, title, due_date, color, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?);`,
-        [pId, p.title, p.due, p.color, now, now]
+        `INSERT INTO projects (id, name, title, due_date, category, status, check_in_rhythm, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'Career', 'active', 'none', ?, ?);`,
+        [pId, p.title, p.title, p.due, now, now]
       );
 
       for (const pt of p.tasks) {

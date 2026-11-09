@@ -2,15 +2,7 @@ export interface ColorPalette {
   primary: string;
   primaryLight: string;
   primaryDark: string;
-  deepGreen: string;
-  accentMint: string;
-  accentMintDark: string;
-  orange: string;
-  orangeSoft: string;
-  purple: string;
-  purpleSoft: string;
   danger: string;
-  dangerSoft: string;
   warning: string;
   success: string;
   background: string;
@@ -44,15 +36,7 @@ export const darkColors: ColorPalette = {
   primary: '#FFFFFF',
   primaryLight: '#E4E4E7',
   primaryDark: '#A1A1AA',
-  deepGreen: '#141416',
-  accentMint: '#27272A',
-  accentMintDark: '#18181B',
-  orange: '#EAB308',
-  orangeSoft: '#2E2208',
-  purple: '#A855F7',
-  purpleSoft: '#29183B',
   danger: '#EF4444',
-  dangerSoft: '#3F1616',
   warning: '#F59E0B',
   success: '#22C55E',
   background: '#09090B',
@@ -76,15 +60,7 @@ export const lightColors: ColorPalette = {
   primary: '#18181B',
   primaryLight: '#27272A',
   primaryDark: '#09090B',
-  deepGreen: '#09090B',
-  accentMint: '#F4F4F5',
-  accentMintDark: '#E4E4E7',
-  orange: '#D97706',
-  orangeSoft: '#FEF3C7',
-  purple: '#9333EA',
-  purpleSoft: '#F3E8FF',
   danger: '#DC2626',
-  dangerSoft: '#FEE2E2',
   warning: '#D97706',
   success: '#16A34A',
   background: '#FAFAFA',

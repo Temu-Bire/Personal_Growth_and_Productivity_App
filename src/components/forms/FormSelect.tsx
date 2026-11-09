@@ -141,7 +141,7 @@ export const FormSelect: React.FC<FormSelectProps> = ({
                           {
                             borderRadius: radius.md,
                             backgroundColor: isSelected
-                              ? colors.accentMint
+                              ? 'rgba(255, 255, 255, 0.1)'
                               : 'transparent',
                           },
                         ]}

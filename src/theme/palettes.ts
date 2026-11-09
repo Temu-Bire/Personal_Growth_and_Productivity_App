@@ -10,7 +10,6 @@ export const DAYVANE_PALETTE = {
   border: '#27272A',
   drawerBgLight: '#18181B',
   drawerBgDark: '#09090B',
-  accentMint: '#27272A',
 } as const;
 
 export type PresetPalette = typeof DAYVANE_PALETTE;

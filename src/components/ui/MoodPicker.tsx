@@ -31,7 +31,7 @@ export const MoodPicker: React.FC<MoodPickerProps> = ({ value, onChange }) => {
               styles.moodItem,
               {
                 borderRadius: radius.xl,
-                backgroundColor: isSelected ? colors.accentMint : colors.inputBg,
+                backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.15)' : colors.inputBg,
                 borderColor: isSelected ? colors.primary : colors.border,
                 borderWidth: isSelected ? 2 : 1,
               },

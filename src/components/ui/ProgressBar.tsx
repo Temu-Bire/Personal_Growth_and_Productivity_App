@@ -22,7 +22,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   // Normalize progress to 0-100%
   const normalizedProgress = progress <= 1 && progress > 0 ? progress * 100 : Math.min(100, Math.max(0, progress));
   const fillColor = color || colors.primary;
-  const trackColor = backgroundColor || colors.accentMint;
+  const trackColor = backgroundColor || colors.border;
 
   return (
     <View

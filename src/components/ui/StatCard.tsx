@@ -54,14 +54,14 @@ export const StatCard: React.FC<StatCardProps> = ({
                 styles.trendBadge,
                 {
                   borderRadius: radius.sm,
-                  backgroundColor: trendPositive ? colors.accentMint : colors.dangerSoft,
+                  backgroundColor: trendPositive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                 },
               ]}
             >
               <Text
                 style={[
                   typography.captionBold,
-                  { color: trendPositive ? colors.primary : colors.danger },
+                  { color: trendPositive ? colors.success : colors.danger },
                 ]}
               >
                 {trend}
