@@ -42,7 +42,7 @@ const CATEGORY_OPTIONS = [
 ];
 
 export const HabitsScreen: React.FC = () => {
-  const { colors, typography, radius } = useTheme();
+  const { colors, typography, radius, isDark } = useTheme();
   const todayStr = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -339,11 +339,11 @@ export const HabitsScreen: React.FC = () => {
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleOpenAdd}
-          style={styles.fab}
+          style={[styles.fab, { backgroundColor: isDark ? '#FFFFFF' : '#09090B' }]}
           accessibilityRole="button"
           accessibilityLabel="Add Habit"
         >
-          <Ionicons name="add" size={28} color="#09090B" />
+          <Ionicons name="add" size={28} color={isDark ? '#09090B' : '#FFFFFF'} />
         </TouchableOpacity>
 
         {/* Add Habit Modal */}
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   scrollList: {
-    paddingBottom: 90,
+    paddingBottom: 100,
   },
   habitCard: {
     flexDirection: 'row',

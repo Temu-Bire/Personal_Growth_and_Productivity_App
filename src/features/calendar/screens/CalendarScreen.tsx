@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   calendarCard: {
     padding: 14,

@@ -65,7 +65,7 @@ export const AppLockSettingsScreen: React.FC = () => {
         <Card style={[styles.statusCard, { backgroundColor: appLockEnabled ? colors.surface : colors.inputBg, borderColor: colors.border }]}>
           <View style={styles.statusRow}>
             <View style={[styles.lockIconBox, { backgroundColor: appLockEnabled ? colors.primary : colors.textMuted }]}>
-              <Ionicons name="shield-checkmark" size={24} color="#FFFFFF" />
+              <Ionicons name="shield-checkmark" size={24} color={appLockEnabled ? colors.background : '#FFFFFF'} />
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={[typography.h3, { color: colors.textPrimary }]}>
@@ -246,7 +246,7 @@ export const AppLockSettingsScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   scrollPadding: {
-    paddingBottom: 60,
+    paddingBottom: 100,
   },
   container: {
     paddingHorizontal: 16,

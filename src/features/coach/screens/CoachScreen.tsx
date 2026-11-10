@@ -25,7 +25,7 @@ const QUICK_ACTIONS = [
 
 export const CoachScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { colors, typography, radius } = useTheme();
+  const { colors, typography, radius, isDark } = useTheme();
   const profileName = useSettingsStore((s) => s.profileName) || 'Temesgen';
   const scrollViewRef = useRef<any>(null);
 
@@ -177,9 +177,9 @@ export const CoachScreen: React.FC = () => {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => handleSendMessage()}
-              style={[styles.sendBtn, { backgroundColor: colors.primary }]}
+              style={[styles.sendBtn, { backgroundColor: isDark ? '#FFFFFF' : '#09090B' }]}
             >
-              <Ionicons name="arrow-up" size={20} color="#000000" />
+              <Ionicons name="arrow-up" size={20} color={isDark ? '#09090B' : '#FFFFFF'} />
             </TouchableOpacity>
           </View>
         </View>

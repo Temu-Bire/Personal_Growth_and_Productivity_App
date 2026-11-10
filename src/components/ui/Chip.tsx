@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 
 interface ChipProps {
@@ -17,7 +17,10 @@ export const Chip: React.FC<ChipProps> = ({
   icon,
   style,
 }) => {
-  const { colors, radius, typography } = useTheme();
+  const { colors, radius, typography, isDark } = useTheme();
+
+  const selectedBg = isDark ? '#FFFFFF' : '#18181B';
+  const selectedText = isDark ? '#09090B' : '#FFFFFF';
 
   return (
     <TouchableOpacity
@@ -28,8 +31,8 @@ export const Chip: React.FC<ChipProps> = ({
         styles.chip,
         {
           borderRadius: radius.round,
-          backgroundColor: selected ? colors.primary : colors.inputBg,
-          borderColor: selected ? colors.primary : colors.border,
+          backgroundColor: selected ? selectedBg : colors.inputBg,
+          borderColor: selected ? selectedBg : colors.border,
           borderWidth: 1,
         },
         style,
@@ -43,8 +46,9 @@ export const Chip: React.FC<ChipProps> = ({
           styles.text,
           typography.chip,
           {
-            color: selected ? '#FFFFFF' : colors.textSecondary,
+            color: selected ? selectedText : colors.textSecondary,
             marginLeft: icon ? 6 : 0,
+            fontWeight: selected ? '700' : '500',
           },
         ]}
       >
@@ -61,11 +65,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
-    marginBottom: 8,
   },
   text: {
     fontSize: 13,
   },
 });
-

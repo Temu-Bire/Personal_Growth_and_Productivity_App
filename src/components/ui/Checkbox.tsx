@@ -8,9 +8,15 @@ interface CheckboxProps {
   checked: boolean;
   onToggle: () => void;
   size?: number;
+  color?: string;
 }
 
-export const Checkbox: React.FC<CheckboxProps> = ({ checked, onToggle, size = 24 }) => {
+export const Checkbox: React.FC<CheckboxProps> = ({
+  checked,
+  onToggle,
+  size = 22,
+  color,
+}) => {
   const { colors, radius } = useTheme();
 
   const handlePress = () => {
@@ -22,6 +28,8 @@ export const Checkbox: React.FC<CheckboxProps> = ({ checked, onToggle, size = 24
     onToggle();
   };
 
+  const activeBg = color || '#22C55E';
+
   return (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -29,8 +37,8 @@ export const Checkbox: React.FC<CheckboxProps> = ({ checked, onToggle, size = 24
       style={[
         styles.touchable,
         {
-          width: Math.max(44, size + 16),
-          height: Math.max(44, size + 16),
+          width: Math.max(38, size + 14),
+          height: Math.max(38, size + 14),
         },
       ]}
       accessibilityRole="checkbox"
@@ -43,8 +51,8 @@ export const Checkbox: React.FC<CheckboxProps> = ({ checked, onToggle, size = 24
             width: size,
             height: size,
             borderRadius: radius.sm,
-            borderColor: checked ? colors.primary : colors.textMuted,
-            backgroundColor: checked ? colors.primary : 'transparent',
+            borderColor: checked ? activeBg : colors.border,
+            backgroundColor: checked ? activeBg : colors.inputBg,
           },
         ]}
       >
@@ -60,9 +68,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   box: {
-    borderWidth: 2,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
 });
-

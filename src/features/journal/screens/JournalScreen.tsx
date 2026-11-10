@@ -37,7 +37,7 @@ const RATING_NUMBERS = [1, 2, 3, 4, 5];
 
 export const JournalScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { colors, typography, radius } = useTheme();
+  const { colors, typography, radius, isDark } = useTheme();
 
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -210,6 +210,17 @@ export const JournalScreen: React.FC = () => {
           )}
         </ScrollView>
 
+        {/* Floating Action Button */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleOpenNew}
+          style={[styles.fab, { backgroundColor: isDark ? '#FFFFFF' : '#09090B' }]}
+          accessibilityRole="button"
+          accessibilityLabel="Add Journal Entry"
+        >
+          <Ionicons name="add" size={28} color={isDark ? '#09090B' : '#FFFFFF'} />
+        </TouchableOpacity>
+
         {/* New / Edit Entry Modal */}
         <BottomSheetModal
           visible={isModalOpen}
@@ -378,7 +389,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   entryCard: {
     padding: 14,
@@ -429,5 +440,21 @@ const styles = StyleSheet.create({
   faceText: {
     fontWeight: '700',
     fontSize: 15,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    zIndex: 99,
   },
 });

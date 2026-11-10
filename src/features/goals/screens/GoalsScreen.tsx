@@ -49,7 +49,7 @@ const TERM_OPTIONS = [
 ];
 
 export const GoalsScreen: React.FC = () => {
-  const { colors, typography, radius } = useTheme();
+  const { colors, typography, radius, isDark } = useTheme();
 
   const [goals, setGoals] = useState<Goal[]>([]);
   const [filter, setFilter] = useState<GoalFilter>('all');
@@ -473,11 +473,11 @@ export const GoalsScreen: React.FC = () => {
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleOpenAdd}
-          style={styles.fab}
+          style={[styles.fab, { backgroundColor: isDark ? '#FFFFFF' : '#09090B' }]}
           accessibilityRole="button"
           accessibilityLabel="Add Goal"
         >
-          <Ionicons name="add" size={28} color="#09090B" />
+          <Ionicons name="add" size={28} color={isDark ? '#09090B' : '#FFFFFF'} />
         </TouchableOpacity>
 
         {/* Add Goal Modal */}
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   scrollList: {
-    paddingBottom: 90,
+    paddingBottom: 100,
   },
   goalCard: {
     padding: 16,

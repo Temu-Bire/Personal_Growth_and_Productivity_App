@@ -142,74 +142,73 @@ export const DashboardScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Expanded Filters Panel */}
-        {filtersExpanded && (
-          <Card style={[styles.filtersCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[typography.captionBold, { color: colors.textSecondary, marginBottom: 6 }]}>
-              Category
-            </Text>
-            <View style={styles.chipsRow}>
-              {CATEGORIES.map((cat) => {
-                const active = selectedCategory === cat;
-                return (
-                  <TouchableOpacity
-                    key={cat}
-                    onPress={() => setSelectedCategory(cat)}
-                    style={[
-                      styles.filterChip,
-                      {
-                        backgroundColor: active ? colors.card : 'transparent',
-                        borderColor: active ? colors.textPrimary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        typography.captionBold,
-                        { color: active ? colors.textPrimary : colors.textSecondary },
-                      ]}
-                    >
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text style={[typography.captionBold, { color: colors.textSecondary, marginTop: 10, marginBottom: 6 }]}>
-              Show
-            </Text>
-            <View style={styles.chipsRow}>
-              {SHOW_OPTIONS.map((opt) => {
-                const active = selectedShow === opt;
-                return (
-                  <TouchableOpacity
-                    key={opt}
-                    onPress={() => setSelectedShow(opt)}
-                    style={[
-                      styles.filterChip,
-                      {
-                        backgroundColor: active ? colors.card : 'transparent',
-                        borderColor: active ? colors.textPrimary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        typography.captionBold,
-                        { color: active ? colors.textPrimary : colors.textSecondary },
-                      ]}
-                    >
-                      {opt}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </Card>
-        )}
-
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* Expanded Filters Panel */}
+          {filtersExpanded && (
+            <Card style={[styles.filtersCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[typography.captionBold, { color: colors.textSecondary, marginBottom: 6 }]}>
+                Category
+              </Text>
+              <View style={styles.chipsRow}>
+                {CATEGORIES.map((cat) => {
+                  const active = selectedCategory === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      onPress={() => setSelectedCategory(cat)}
+                      style={[
+                        styles.filterChip,
+                        {
+                          backgroundColor: active ? colors.card : 'transparent',
+                          borderColor: active ? colors.textPrimary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          typography.captionBold,
+                          { color: active ? colors.textPrimary : colors.textSecondary },
+                        ]}
+                      >
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={[typography.captionBold, { color: colors.textSecondary, marginTop: 10, marginBottom: 6 }]}>
+                Show
+              </Text>
+              <View style={styles.chipsRow}>
+                {SHOW_OPTIONS.map((opt) => {
+                  const active = selectedShow === opt;
+                  return (
+                    <TouchableOpacity
+                      key={opt}
+                      onPress={() => setSelectedShow(opt)}
+                      style={[
+                        styles.filterChip,
+                        {
+                          backgroundColor: active ? colors.card : 'transparent',
+                          borderColor: active ? colors.textPrimary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          typography.captionBold,
+                          { color: active ? colors.textPrimary : colors.textSecondary },
+                        ]}
+                      >
+                        {opt}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </Card>
+          )}
           {/* Overall Score Card */}
           <Card style={[styles.scoreCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[typography.captionBold, { color: colors.textSecondary, letterSpacing: 0.5 }]}>
@@ -404,7 +403,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   scoreCard: {
     padding: 16,

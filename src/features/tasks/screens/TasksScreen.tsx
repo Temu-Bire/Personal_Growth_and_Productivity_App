@@ -55,7 +55,7 @@ const PRIORITY_OPTIONS = [
 export const TasksScreen: React.FC = () => {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
-  const { colors, typography, radius } = useTheme();
+  const { colors, typography, radius, isDark } = useTheme();
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const [filter, setFilter] = useState<TaskFilter>('all');
@@ -344,11 +344,11 @@ export const TasksScreen: React.FC = () => {
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleOpenAdd}
-          style={[styles.fab, { backgroundColor: colors.primary }]}
+          style={[styles.fab, { backgroundColor: isDark ? '#FFFFFF' : '#09090B' }]}
           accessibilityRole="button"
           accessibilityLabel="Add Task"
         >
-          <Ionicons name="add" size={28} color="#000000" />
+          <Ionicons name="add" size={28} color={isDark ? '#09090B' : '#FFFFFF'} />
         </TouchableOpacity>
 
         {/* New Task Modal */}
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   scrollContent: {
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
   taskCard: {
     padding: 14,

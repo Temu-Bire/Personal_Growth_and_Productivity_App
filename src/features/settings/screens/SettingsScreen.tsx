@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   sectionCard: {
     padding: 14,

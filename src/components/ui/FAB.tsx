@@ -13,10 +13,13 @@ interface FABProps {
 export const FAB: React.FC<FABProps> = ({
   onPress,
   iconName = 'add',
-  size = 56,
+  size = 54,
   style,
 }) => {
-  const { colors, shadows } = useTheme();
+  const { isDark, shadows } = useTheme();
+
+  const bgColor = isDark ? '#FFFFFF' : '#09090B';
+  const iconColor = isDark ? '#09090B' : '#FFFFFF';
 
   return (
     <TouchableOpacity
@@ -28,7 +31,7 @@ export const FAB: React.FC<FABProps> = ({
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: colors.primary,
+          backgroundColor: bgColor,
           ...shadows.floating,
         },
         style,
@@ -36,7 +39,7 @@ export const FAB: React.FC<FABProps> = ({
       accessibilityRole="button"
       accessibilityLabel="Add"
     >
-      <Ionicons name={iconName} size={size * 0.5} color="#FFFFFF" />
+      <Ionicons name={iconName} size={size * 0.5} color={iconColor} />
     </TouchableOpacity>
   );
 };
@@ -48,7 +51,6 @@ const styles = StyleSheet.create({
     bottom: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
+    zIndex: 99,
   },
 });
-

@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   analyticsCard: {
     padding: 16,

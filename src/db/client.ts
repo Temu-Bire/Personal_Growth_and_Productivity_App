@@ -82,35 +82,50 @@ export async function getDatabaseAsync(): Promise<SQLite.SQLiteDatabase> {
 
 function ensureProjectsSchemaSync(db: SQLite.SQLiteDatabase): void {
   try {
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT,
+        title TEXT,
+        description TEXT,
+        category_id TEXT,
+        category TEXT NOT NULL DEFAULT 'General',
+        status TEXT NOT NULL DEFAULT 'active',
+        check_in_rhythm TEXT NOT NULL DEFAULT 'none',
+        last_check_in TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TEXT
+      );
+    `);
+
     const cols = db.getAllSync<{ name: string }>('PRAGMA table_info(projects);');
     const colNames = cols.map((c) => c.name);
-    if (colNames.length > 0) {
-      if (!colNames.includes('name')) {
-        db.execSync('ALTER TABLE projects ADD COLUMN name TEXT;');
-        db.execSync('UPDATE projects SET name = COALESCE(title, "Untitled Project");');
-      }
-      if (!colNames.includes('title')) {
-        db.execSync('ALTER TABLE projects ADD COLUMN title TEXT;');
-        db.execSync('UPDATE projects SET title = name;');
-      }
-      if (!colNames.includes('description')) {
-        db.execSync('ALTER TABLE projects ADD COLUMN description TEXT;');
-      }
-      if (!colNames.includes('category_id')) {
-        db.execSync('ALTER TABLE projects ADD COLUMN category_id TEXT;');
-      }
-      if (!colNames.includes('deleted_at')) {
-        db.execSync('ALTER TABLE projects ADD COLUMN deleted_at TEXT;');
-      }
-      if (!colNames.includes('category')) {
-        db.execSync("ALTER TABLE projects ADD COLUMN category TEXT NOT NULL DEFAULT 'General';");
-      }
-      if (!colNames.includes('check_in_rhythm')) {
-        db.execSync("ALTER TABLE projects ADD COLUMN check_in_rhythm TEXT NOT NULL DEFAULT 'none';");
-      }
-      if (!colNames.includes('status')) {
-        db.execSync("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active';");
-      }
+    if (!colNames.includes('name')) {
+      db.execSync('ALTER TABLE projects ADD COLUMN name TEXT;');
+      db.execSync('UPDATE projects SET name = COALESCE(title, "Untitled Project");');
+    }
+    if (!colNames.includes('title')) {
+      db.execSync('ALTER TABLE projects ADD COLUMN title TEXT;');
+      db.execSync('UPDATE projects SET title = name;');
+    }
+    if (!colNames.includes('description')) {
+      db.execSync('ALTER TABLE projects ADD COLUMN description TEXT;');
+    }
+    if (!colNames.includes('category_id')) {
+      db.execSync('ALTER TABLE projects ADD COLUMN category_id TEXT;');
+    }
+    if (!colNames.includes('deleted_at')) {
+      db.execSync('ALTER TABLE projects ADD COLUMN deleted_at TEXT;');
+    }
+    if (!colNames.includes('category')) {
+      db.execSync("ALTER TABLE projects ADD COLUMN category TEXT NOT NULL DEFAULT 'General';");
+    }
+    if (!colNames.includes('check_in_rhythm')) {
+      db.execSync("ALTER TABLE projects ADD COLUMN check_in_rhythm TEXT NOT NULL DEFAULT 'none';");
+    }
+    if (!colNames.includes('status')) {
+      db.execSync("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active';");
     }
 
     const taskCols = db.getAllSync<{ name: string }>('PRAGMA table_info(tasks);');
@@ -118,8 +133,8 @@ function ensureProjectsSchemaSync(db: SQLite.SQLiteDatabase): void {
     if (taskColNames.length > 0 && !taskColNames.includes('project_id')) {
       db.execSync('ALTER TABLE tasks ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL;');
     }
-  } catch {
-    // safe ignore if table doesn't exist yet
+  } catch (e) {
+    console.warn('ensureProjectsSchemaSync warning:', e);
   }
 }
 

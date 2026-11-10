@@ -59,7 +59,7 @@ const RHYTHM_OPTIONS = [
 
 export const ProjectsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { colors, typography, radius } = useTheme();
+  const { colors, typography, radius, isDark } = useTheme();
 
   const [statusFilter, setStatusFilter] = useState<ProjectStatus>('active');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -253,11 +253,11 @@ export const ProjectsScreen: React.FC = () => {
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleOpenAdd}
-          style={[styles.fab, { backgroundColor: colors.primary }]}
+          style={[styles.fab, { backgroundColor: isDark ? '#FFFFFF' : '#09090B' }]}
           accessibilityRole="button"
           accessibilityLabel="Add Project"
         >
-          <Ionicons name="add" size={28} color="#000000" />
+          <Ionicons name="add" size={28} color={isDark ? '#09090B' : '#FFFFFF'} />
         </TouchableOpacity>
 
         {/* New Project Modal */}
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   scrollContent: {
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
   projectCard: {
     padding: 14,

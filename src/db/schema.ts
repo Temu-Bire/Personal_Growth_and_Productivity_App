@@ -101,12 +101,19 @@ CREATE INDEX IF NOT EXISTS idx_study_sessions_sub ON study_sessions(subject_id);
 
 CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY,
+  name TEXT,
   title TEXT NOT NULL,
-  due_date TEXT NOT NULL,
-  status TEXT DEFAULT 'in_progress',
+  description TEXT,
+  category_id TEXT,
+  category TEXT NOT NULL DEFAULT 'General',
+  status TEXT DEFAULT 'active',
+  check_in_rhythm TEXT DEFAULT 'none',
+  last_check_in TEXT,
+  due_date TEXT,
   color TEXT DEFAULT '#1E8E4E',
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  deleted_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS project_tasks (
